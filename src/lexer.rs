@@ -14,7 +14,7 @@ enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Token {
     value: String,
     token_type: TokenType,
@@ -77,11 +77,11 @@ impl Lexer {
     fn lex_integer(&mut self) -> Token {
         let mut value = String::new();
         let start = self.pos;
-        let mut c = self.consume();
+        let mut c = self.current();
 
         while c.is_digit(10) {
-            value.push(c);
-            c = self.consume();
+            value.push(self.consume());
+            c = self.current();
         }
 
         Token {
@@ -94,11 +94,11 @@ impl Lexer {
     fn lex_string(&mut self) -> Token {
         let mut value = String::new();
         let start = self.pos;
-        let mut c = self.consume();
+        let mut c = self.current();
 
         while c.is_alphanumeric() || STR_ALLOWED_SYMBOLS.contains(&c) {
-            value.push(c);
-            c = self.consume();
+            value.push(self.consume());
+            c = self.current();
         }
 
         let token_type: TokenType = self.get_str_token_type(value.as_str());
@@ -131,7 +131,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-
+    use std::iter::zip;
     use super::*;
 
     #[rstest::rstest]
@@ -159,4 +159,21 @@ mod tests {
         assert_eq!(test_case, tokens[0].value);
         assert_eq!(expected_type, tokens[0].token_type);
     }
+
+    #[rstest::rstest]
+    #[case("int x = 55;     ", vec![
+        Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
+        Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
+        Token{value: "=".to_string(), token_type: TokenType::Equals, pos: 6},
+        Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8},
+        Token{value: ";".to_string(), token_type: TokenType::SemiColon, pos: 10},
+    ])]
+    fn test_lex_multiple_tokens(#[case] test_case: String, #[case] expected: Vec<Token>) {
+        let result = Lexer::new(test_case.clone()).lex();
+        assert_eq!(expected.len(), result.len());
+        for (x, y) in zip(expected, result) {
+            assert_eq!(x, y);
+        }
+    }
+
 }
