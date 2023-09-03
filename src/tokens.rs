@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
     Identifier,
     Type,
@@ -10,7 +10,7 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
     pub value: String,
     pub token_type: TokenType,
@@ -25,4 +25,3 @@ pub static STR_ALLOWED_SYMBOLS: [char; 2] = ['_', '$'];
 pub static TYPES: [&str; 1] = ["int"];
 
 pub static KEYWORDS: [&str; 4] = ["if", "while", "do", "return"];
-
