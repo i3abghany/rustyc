@@ -1,35 +1,9 @@
+use crate::tokens::*;
+
 pub struct Lexer {
     src: String,
     pos: usize,
 }
-#[derive(Debug, PartialEq, Eq)]
-enum TokenType {
-    Identifier,
-    Type,
-    Keyword,
-    Equals,
-    Plus,
-    SemiColon,
-    IntegerLiteral,
-    Eof,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Token {
-    value: String,
-    token_type: TokenType,
-    pos: usize,
-}
-
-static EOF: char = '\0';
-
-// TODO update these vectors to represent the specification.
-static STR_ALLOWED_SYMBOLS: [char; 2] = ['_', '$'];
-
-static TYPES: [&str; 1] = ["int"];
-
-static KEYWORDS: [&str; 4] = ["if", "while", "do", "return"];
-
 impl Lexer {
     pub fn new(src: String) -> Self {
         Self { src, pos: 0 }
@@ -47,7 +21,11 @@ impl Lexer {
             } else if c.is_whitespace() {
                 self.advance();
             } else if let Some(token_type) = self.get_single_char_token(c) {
-                result.push(Token { value: String::from(c), token_type, pos: self.pos});
+                result.push(Token {
+                    value: String::from(c),
+                    token_type,
+                    pos: self.pos,
+                });
                 self.advance();
             } else {
                 result.push(self.lex_string());
@@ -116,7 +94,7 @@ impl Lexer {
             TokenType::Keyword
         } else {
             TokenType::Identifier
-        }
+        };
     }
 
     fn get_single_char_token(&self, c: char) -> Option<TokenType> {
@@ -131,8 +109,8 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-    use std::iter::zip;
     use super::*;
+    use std::iter::zip;
 
     #[rstest::rstest]
     #[case("0")]
@@ -175,5 +153,4 @@ mod tests {
             assert_eq!(x, y);
         }
     }
-
 }
