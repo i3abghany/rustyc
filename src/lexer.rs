@@ -22,14 +22,47 @@ pub struct Token {
 }
 
 static EOF: char = '\0';
-impl Lexer {
 
+// TODO update these vectors to represent the specification.
+static STR_ALLOWED_SYMBOLS: [char; 2] = ['_', '$'];
+
+static TYPES: [&str; 1] = ["int"];
+
+static KEYWORDS: [&str; 4] = ["if", "while", "do", "return"];
+
+impl Lexer {
     pub fn new(src: String) -> Self {
         Self { src, pos: 0 }
     }
+
+    pub fn lex(&mut self) -> Vec<Token> {
+        let mut result = Vec::new();
+        loop {
+            let c = self.current();
+            if c == EOF {
+                break;
+            }
+            if c.is_digit(10) {
+                result.push(self.lex_integer());
+            } else if c.is_whitespace() {
+                self.advance();
+            } else if let Some(token_type) = self.get_single_char_token(c) {
+                result.push(Token { value: String::from(c), token_type, pos: self.pos});
+                self.advance();
+            } else {
+                result.push(self.lex_string());
+            }
+        }
+        result
+    }
+
+    fn advance(&mut self) {
+        self.pos += 1;
+    }
+
     fn consume(&mut self) -> char {
         let curr = self.current();
-        self.pos += 1;
+        self.advance();
         curr
     }
 
@@ -45,29 +78,60 @@ impl Lexer {
         let mut value = String::new();
         let start = self.pos;
         let mut c = self.consume();
+
         while c.is_digit(10) {
             value.push(c);
             c = self.consume();
         }
 
-        Token { value, token_type: TokenType::IntegerLiteral, pos: start }
+        Token {
+            value,
+            token_type: TokenType::IntegerLiteral,
+            pos: start,
+        }
     }
 
-    pub fn lex(&mut self) -> Vec<Token> {
-        let mut result = Vec::new();
-        loop {
-            let c = self.current();
-            if c == EOF { break; }
-            if c.is_digit(10) {
-                result.push(self.lex_integer());
-            }
+    fn lex_string(&mut self) -> Token {
+        let mut value = String::new();
+        let start = self.pos;
+        let mut c = self.consume();
+
+        while c.is_alphanumeric() || STR_ALLOWED_SYMBOLS.contains(&c) {
+            value.push(c);
+            c = self.consume();
         }
-        result
+
+        let token_type: TokenType = self.get_str_token_type(value.as_str());
+        Token {
+            value,
+            token_type,
+            pos: start,
+        }
+    }
+
+    fn get_str_token_type(&self, string: &str) -> TokenType {
+        return if TYPES.contains(&string) {
+            TokenType::Type
+        } else if KEYWORDS.contains(&string) {
+            TokenType::Keyword
+        } else {
+            TokenType::Identifier
+        }
+    }
+
+    fn get_single_char_token(&self, c: char) -> Option<TokenType> {
+        return match c {
+            '+' => Some(TokenType::Plus),
+            '=' => Some(TokenType::Equals),
+            ';' => Some(TokenType::SemiColon),
+            _ => None,
+        };
     }
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[rstest::rstest]
@@ -79,5 +143,20 @@ mod tests {
         assert_eq!(1, tokens.len());
         assert_eq!(test_case, tokens[0].value);
         assert_eq!(TokenType::IntegerLiteral, tokens[0].token_type);
+    }
+
+    #[rstest::rstest]
+    #[case("+", TokenType::Plus)]
+    #[case("=", TokenType::Equals)]
+    #[case(";", TokenType::SemiColon)]
+    #[case("int", TokenType::Type)]
+    #[case("while", TokenType::Keyword)]
+    #[case("hello", TokenType::Identifier)]
+    #[case("Pa$5W_rd", TokenType::Identifier)]
+    fn test_lex_string(#[case] test_case: String, #[case] expected_type: TokenType) {
+        let tokens = Lexer::new(test_case.clone()).lex();
+        assert_eq!(1, tokens.len());
+        assert_eq!(test_case, tokens[0].value);
+        assert_eq!(expected_type, tokens[0].token_type);
     }
 }
