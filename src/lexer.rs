@@ -4,6 +4,7 @@ pub struct Lexer {
     src: String,
     pos: usize,
 }
+
 impl Lexer {
     pub fn new(src: String) -> Self {
         Self { src, pos: 0 }
@@ -133,7 +134,7 @@ mod tests {
     #[case("=", TokenType::Equals)]
     #[case(";", TokenType::SemiColon)]
     #[case("int", TokenType::Type)]
-    #[case("while", TokenType::WhileKeyword)]
+    #[case("while", TokenType::While)]
     #[case("hello", TokenType::Identifier)]
     #[case("Pa$5W_rd", TokenType::Identifier)]
     fn test_lex_string(#[case] test_case: String, #[case] expected_type: TokenType) {
@@ -154,13 +155,13 @@ mod tests {
         Token{value: EOF.to_string(), token_type: TokenType::Eof, pos: EOF_POS},
     ])]
     #[case("return x;", vec![
-        Token{value: "return".to_string(), token_type: TokenType::ReturnKeyword, pos: 0},
+        Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
         Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 7},
         Token{value: ";".to_string(), token_type: TokenType::SemiColon, pos: 8},
         Token{value: EOF.to_string(), token_type: TokenType::Eof, pos: EOF_POS},
     ])]
     #[case("return 1234;", vec![
-        Token{value: "return".to_string(), token_type: TokenType::ReturnKeyword, pos: 0},
+        Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
         Token{value: "1234".to_string(), token_type: TokenType::IntegerLiteral, pos: 7},
         Token{value: ";".to_string(), token_type: TokenType::SemiColon, pos: 11},
         Token{value: EOF.to_string(), token_type: TokenType::Eof, pos: EOF_POS},
