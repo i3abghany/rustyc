@@ -23,6 +23,7 @@ pub struct Token {
 }
 
 pub static EOF: char = '\0';
+pub static EOF_POS: usize = usize::MAX;
 
 // TODO update these vectors to represent the specification.
 pub static STR_ALLOWED_SYMBOLS: [char; 2] = ['_', '$'];
