@@ -87,23 +87,22 @@ impl Lexer {
         }
     }
 
+    fn get_keyword_token_type(&self, string: &str) -> TokenType {
+        KEYWORDS.get(string).unwrap().clone()
+    }
+
     fn get_str_token_type(&self, string: &str) -> TokenType {
-        return if TYPES.contains(&string) {
+        return if TYPES.contains_key(string) {
             TokenType::Type
-        } else if KEYWORDS.contains(&string) {
-            TokenType::Keyword
+        } else if KEYWORDS.contains_key(string) {
+            self.get_keyword_token_type(string)
         } else {
             TokenType::Identifier
         };
     }
 
     fn get_single_char_token(&self, c: char) -> Option<TokenType> {
-        return match c {
-            '+' => Some(TokenType::Plus),
-            '=' => Some(TokenType::Equals),
-            ';' => Some(TokenType::SemiColon),
-            _ => None,
-        };
+        SINGLE_CHAR_TOKENS.get(&c).cloned()
     }
 }
 
@@ -128,7 +127,7 @@ mod tests {
     #[case("=", TokenType::Equals)]
     #[case(";", TokenType::SemiColon)]
     #[case("int", TokenType::Type)]
-    #[case("while", TokenType::Keyword)]
+    #[case("while", TokenType::WhileKeyword)]
     #[case("hello", TokenType::Identifier)]
     #[case("Pa$5W_rd", TokenType::Identifier)]
     fn test_lex_string(#[case] test_case: String, #[case] expected_type: TokenType) {
@@ -145,6 +144,16 @@ mod tests {
         Token{value: "=".to_string(), token_type: TokenType::Equals, pos: 6},
         Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8},
         Token{value: ";".to_string(), token_type: TokenType::SemiColon, pos: 10},
+    ])]
+    #[case("return x;", vec![
+        Token{value: "return".to_string(), token_type: TokenType::ReturnKeyword, pos: 0},
+        Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 7},
+        Token{value: ";".to_string(), token_type: TokenType::SemiColon, pos: 8},
+    ])]
+    #[case("return 1234;", vec![
+        Token{value: "return".to_string(), token_type: TokenType::ReturnKeyword, pos: 0},
+        Token{value: "1234".to_string(), token_type: TokenType::IntegerLiteral, pos: 7},
+        Token{value: ";".to_string(), token_type: TokenType::SemiColon, pos: 11},
     ])]
     fn test_lex_multiple_tokens(#[case] test_case: String, #[case] expected: Vec<Token>) {
         let result = Lexer::new(test_case.clone()).lex();
