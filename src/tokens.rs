@@ -4,10 +4,10 @@ use phf::phf_map;
 pub enum TokenType {
     Identifier,
     Type,
-    ReturnKeyword,
-    WhileKeyword,
-    IfKeyword,
-    DoKeyword,
+    Return,
+    While,
+    If,
+    Do,
     Equals,
     Plus,
     SemiColon,
@@ -33,10 +33,10 @@ pub const TYPES: phf::Map<&'static str, TokenType> = phf_map! {
 };
 
 pub const KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
-    "if" => TokenType::IfKeyword,
-    "while" => TokenType::WhileKeyword,
-    "do" => TokenType::DoKeyword,
-    "return" => TokenType::ReturnKeyword,
+    "if" => TokenType::If,
+    "while" => TokenType::While,
+    "do" => TokenType::Do,
+    "return" => TokenType::Return,
 };
 
 pub const SINGLE_CHAR_TOKENS: phf::Map<char, TokenType> = phf_map! {

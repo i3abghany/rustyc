@@ -26,7 +26,7 @@ impl Parser {
     fn parse_statement(&mut self) -> ASTNode {
         match self.current().token_type {
             TokenType::Type => self.parse_declaration(),
-            TokenType::ReturnKeyword => self.parse_return_statement(),
+            TokenType::Return => self.parse_return_statement(),
             _ => panic!("Parser: Unexpected token {:?}", self.current()),
         }
     }
@@ -79,7 +79,7 @@ impl Parser {
 
     fn parse_return_statement(&mut self) -> ASTNode {
         static EXPECTED_SEQUENCE: [TokenType; 3] = [
-            TokenType::ReturnKeyword,
+            TokenType::Return,
             TokenType::IntegerLiteral,
             TokenType::SemiColon,
         ];
@@ -135,7 +135,7 @@ mod tests {
     #[rstest::rstest]
     #[case("return 123;", ASTNode::Program(
         vec![ASTNode::ReturnStatement(
-            Token{value: "return".to_string(), token_type: TokenType::ReturnKeyword, pos: 0},
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ASTNode::IntegerLiteralExpression(
                     Token{value: "123".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
             ))
