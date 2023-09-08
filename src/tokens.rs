@@ -1,8 +1,13 @@
+use phf::phf_map;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
     Identifier,
     Type,
-    Keyword,
+    ReturnKeyword,
+    WhileKeyword,
+    IfKeyword,
+    DoKeyword,
     Equals,
     Plus,
     SemiColon,
@@ -22,6 +27,19 @@ pub static EOF: char = '\0';
 // TODO update these vectors to represent the specification.
 pub static STR_ALLOWED_SYMBOLS: [char; 2] = ['_', '$'];
 
-pub static TYPES: [&str; 1] = ["int"];
+pub const TYPES: phf::Map<&'static str, TokenType> = phf_map! {
+    "int" => TokenType::Type,
+};
 
-pub static KEYWORDS: [&str; 4] = ["if", "while", "do", "return"];
+pub const KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
+    "if" => TokenType::IfKeyword,
+    "while" => TokenType::WhileKeyword,
+    "do" => TokenType::DoKeyword,
+    "return" => TokenType::ReturnKeyword,
+};
+
+pub const SINGLE_CHAR_TOKENS: phf::Map<char, TokenType> = phf_map! {
+    '+' => TokenType::Plus,
+    '=' => TokenType::Equals,
+    ';' => TokenType::SemiColon,
+};
