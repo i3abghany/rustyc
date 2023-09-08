@@ -1,21 +1,13 @@
+use crate::ast::*;
 use crate::tokens::*;
 
-#[derive(Debug, PartialEq, Eq)]
-enum ASTNode {
-    IntegerLiteralExpression(Token),
-    // TODO split declaration and assignment into two separate nodes.
-    Declaration(Token, Token, Box<ASTNode>), // Type, Identifier, Expression
-    ReturnStatement(Token, Box<ASTNode>),    // ReturnKeyword, Expression
-    Program(Vec<ASTNode>),
-}
-
-struct Parser {
+pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, pos: 0 }
     }
 
