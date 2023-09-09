@@ -9,7 +9,7 @@ pub enum ASTNode {
     Program(Vec<ASTNode>),
 }
 
-trait EvaluateExpression {
+pub trait EvaluateExpression {
     fn evaluate(&self) -> String;
 }
 
