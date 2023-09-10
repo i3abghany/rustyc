@@ -98,13 +98,13 @@ impl Lexer {
     }
 
     fn get_str_token_type(&self, string: &str) -> TokenType {
-        return if TYPES.contains_key(string) {
+        if TYPES.contains_key(string) {
             TokenType::Type
         } else if KEYWORDS.contains_key(string) {
             self.get_keyword_token_type(string)
         } else {
             TokenType::Identifier
-        };
+        }
     }
 
     fn get_single_char_token(&self, c: char) -> Option<TokenType> {

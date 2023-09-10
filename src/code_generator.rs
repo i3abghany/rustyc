@@ -130,7 +130,7 @@ impl CodeGenerator {
         }
     }
 
-    fn variable_size(variable_type: &String) -> usize {
+    fn variable_size(variable_type: &str) -> usize {
         4
     }
 }
