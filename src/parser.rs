@@ -53,56 +53,50 @@ impl Parser {
         self.pos += 1;
     }
 
+    fn parse_expression(&mut self) -> ASTNode {
+        match self.current().token_type {
+            TokenType::Identifier => {
+                ASTNode::ExpressionNode(Expression::VariableExpression(self.consume()))
+            }
+            TokenType::IntegerLiteral => {
+                ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(self.consume()))
+            }
+            _ => panic!("Unexpected token: {:?}", self.current()),
+        }
+    }
+
     fn parse_int_literal(&mut self) -> ASTNode {
-        ASTNode::IntegerLiteralExpression(self.consume())
+        ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(self.consume()))
     }
 
     fn parse_declaration(&mut self) -> ASTNode {
-        static EXPECTED_SEQUENCE: [TokenType; 5] = [
-            TokenType::Type,
-            TokenType::Identifier,
-            TokenType::Equals,
-            TokenType::IntegerLiteral,
-            TokenType::SemiColon,
-        ];
+        let type_token = self.try_consume(TokenType::Type);
+        let identifier = self.try_consume(TokenType::Identifier);
+        self.try_consume(TokenType::Equals);
+        let expression = self.parse_expression();
+        self.try_consume(TokenType::SemiColon);
 
-        self.expect_token_sequence(&EXPECTED_SEQUENCE);
+        ASTNode::Declaration(type_token, identifier, Box::new(expression))
+    }
 
-        let type_token = self.consume();
-        let identifier = self.consume();
-        self.advance(); // Equals
-        let literal = self.parse_int_literal();
-        self.advance(); // SemiColon
-
-        ASTNode::Declaration(type_token, identifier, Box::new(literal))
+    fn try_consume(&mut self, token_type: TokenType) -> Token {
+        if self.current().token_type == token_type {
+            self.consume()
+        } else {
+            panic!(
+                "Expected {:?}, found: {:?}",
+                token_type,
+                self.current().token_type
+            )
+        }
     }
 
     fn parse_return_statement(&mut self) -> ASTNode {
-        static EXPECTED_SEQUENCE: [TokenType; 3] = [
-            TokenType::Return,
-            TokenType::IntegerLiteral,
-            TokenType::SemiColon,
-        ];
+        let return_keyword = self.try_consume(TokenType::Return);
+        let expression = self.parse_expression();
+        self.try_consume(TokenType::SemiColon);
 
-        self.expect_token_sequence(&EXPECTED_SEQUENCE);
-
-        let return_keyword = self.consume();
-        let literal = self.parse_int_literal();
-        self.advance(); // SemiColon
-
-        ASTNode::ReturnStatement(return_keyword, Box::new(literal))
-    }
-
-    fn expect_token_sequence(&self, types: &[TokenType]) {
-        for (i, token_type) in types.iter().enumerate() {
-            if self.peak(i).token_type != *token_type {
-                panic!(
-                    "Parser: Expected {:?}, got {:?}",
-                    token_type,
-                    self.peak(i).token_type
-                )
-            }
-        }
+        ASTNode::ReturnStatement(return_keyword, Box::new(expression))
     }
 
     fn EOF_token(&self) -> &Token {
@@ -113,7 +107,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
 
-    use super::{ASTNode, Parser, Token, TokenType};
+    use super::*;
     use crate::lexer::Lexer;
 
     #[rstest::rstest]
@@ -121,9 +115,9 @@ mod tests {
         vec![ASTNode::Declaration(
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-            Box::new(ASTNode::IntegerLiteralExpression(
+            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(
                 Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
-            ))
+            )))
         )])
     )]
     fn test_parse_basic_declaration(#[case] test_case: String, #[case] expected: ASTNode) {
@@ -136,10 +130,10 @@ mod tests {
     #[case("return 123;", ASTNode::Program(
         vec![ASTNode::ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
-            Box::new(ASTNode::IntegerLiteralExpression(
+            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(
                     Token{value: "123".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
             ))
-        )])
+        ))])
     )]
     fn test_parse_return_statement(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
