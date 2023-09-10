@@ -19,24 +19,23 @@ impl CodeGenerator {
         }
     }
 
-
     pub fn generate(&mut self, root: &ASTNode) -> String {
-        return match root {
+        match root {
             ASTNode::Program(_) => self.generate_program(root),
             ASTNode::ReturnStatement(_, _) => self.generate_return_statement(root),
             ASTNode::Declaration(_, _, _) => self.generate_declaration(root),
             ASTNode::ExpressionNode(_) => self.generate_expression(root),
-        };
+        }
     }
 
     fn generate_expression(&self, node: &ASTNode) -> String {
-        return match node {
+        match node {
             ASTNode::ExpressionNode(expr) => match expr {
                 Expression::IntegerLiteralExpression(_) => self.generate_integral_literal(node),
                 Expression::VariableExpression(_) => self.generate_variable_expression(node),
             },
             _ => panic!(""),
-        };
+        }
     }
 
     fn generate_integral_literal(&self, node: &ASTNode) -> String {
@@ -81,7 +80,7 @@ impl CodeGenerator {
     }
 
     fn generate_return_statement(&mut self, node: &ASTNode) -> String {
-        return match node {
+        match node {
             ASTNode::ReturnStatement(_, expr_node) => {
                 format!(
                     "mov %rbp, %rsp\nmov {}, %rax\npop %rbp\nret\n",
@@ -89,7 +88,7 @@ impl CodeGenerator {
                 )
             }
             _ => panic!(""),
-        };
+        }
     }
 
     fn generate_declaration(&mut self, node: &ASTNode) -> String {
@@ -125,7 +124,7 @@ impl CodeGenerator {
                     (self.stack_top)
                 );
                 self.stack_top -= variable_size as i64;
-                return result;
+                result
             }
             _ => panic!(),
         }
