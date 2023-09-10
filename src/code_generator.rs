@@ -41,26 +41,22 @@ impl CodeGenerator {
 
     fn generate_integral_literal(&self, node: &ASTNode) -> String {
         match node {
-            ASTNode::ExpressionNode(expr) => match expr {
-                Expression::IntegerLiteralExpression(token) => format!("${}", token.value.clone()),
-                _ => panic!(""),
-            },
+            ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(token)) => {
+                format!("${}", token.value.clone())
+            }
             _ => panic!(""),
         }
     }
 
     fn generate_variable_expression(&self, node: &ASTNode) -> String {
         match node {
-            ASTNode::ExpressionNode(expr) => match expr {
-                Expression::VariableExpression(token) => {
-                    let definition = self
-                        .variables
-                        .get(token.value.as_str())
-                        .expect(format!("Undefined variable: {}", token.value.as_str()).as_str());
-                    format!("{}(%rbp)", definition.stack_offset)
-                }
-                _ => panic!(""),
-            },
+            ASTNode::ExpressionNode(Expression::VariableExpression(token)) => {
+                let definition = self
+                    .variables
+                    .get(token.value.as_str())
+                    .unwrap_or_else(|| panic!("Undefined variable: {}", token.value.as_str()));
+                format!("{}(%rbp)", definition.stack_offset)
+            }
             _ => panic!(""),
         }
     }
