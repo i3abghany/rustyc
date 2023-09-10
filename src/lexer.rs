@@ -17,7 +17,7 @@ impl Lexer {
             if c == EOF {
                 break;
             }
-            if c.is_digit(10) {
+            if c.is_ascii_digit() {
                 result.push(self.lex_integer());
             } else if c.is_whitespace() {
                 self.advance();
@@ -63,7 +63,7 @@ impl Lexer {
         let start = self.pos;
         let mut c = self.current();
 
-        while c.is_digit(10) {
+        while c.is_ascii_digit() {
             value.push(self.consume());
             c = self.current();
         }
