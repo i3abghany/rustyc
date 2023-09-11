@@ -27,13 +27,14 @@ impl Parser {
         match self.current().token_type {
             TokenType::Type => self.parse_declaration(),
             TokenType::Return => self.parse_return_statement(),
+            TokenType::Identifier => self.parse_assignment(),
             _ => panic!("Parser: Unexpected token {:?}", self.current()),
         }
     }
 
     fn peak(&self, offset: usize) -> &Token {
         if (self.pos + offset) >= self.tokens.len() {
-            self.EOF_token()
+            return self.tokens.last().unwrap();
         } else {
             &self.tokens[self.pos + offset]
         }
@@ -65,6 +66,14 @@ impl Parser {
         }
     }
 
+    fn parse_assignment(&mut self) -> ASTNode {
+        let identifier_token = self.try_consume(TokenType::Identifier);
+        self.try_consume(TokenType::Equals);
+        let expression = self.parse_expression();
+        self.try_consume(TokenType::SemiColon);
+        ASTNode::Assignment(identifier_token, Box::new(expression))
+    }
+
     fn parse_int_literal(&mut self) -> ASTNode {
         ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(self.consume()))
     }
@@ -72,11 +81,16 @@ impl Parser {
     fn parse_declaration(&mut self) -> ASTNode {
         let type_token = self.try_consume(TokenType::Type);
         let identifier = self.try_consume(TokenType::Identifier);
-        self.try_consume(TokenType::Equals);
-        let expression = self.parse_expression();
-        self.try_consume(TokenType::SemiColon);
+        if self.current().token_type == TokenType::Equals {
+            // We have a declaration followed by an assignment.
+            // The declaration ends here, and we need to parse
+            // again starting from the identifier.
+            self.pos -= 1;
+        } else {
+            self.try_consume(TokenType::SemiColon);
+        }
 
-        ASTNode::Declaration(type_token, identifier, Box::new(expression))
+        ASTNode::Declaration(type_token, identifier)
     }
 
     fn try_consume(&mut self, token_type: TokenType) -> Token {
@@ -98,10 +112,6 @@ impl Parser {
 
         ASTNode::ReturnStatement(return_keyword, Box::new(expression))
     }
-
-    fn EOF_token(&self) -> &Token {
-        return self.tokens.last().unwrap();
-    }
 }
 
 #[cfg(test)]
@@ -112,13 +122,19 @@ mod tests {
 
     #[rstest::rstest]
     #[case("int x = 55;", ASTNode::Program(
-        vec![ASTNode::Declaration(
-            Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
-            Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(
-                Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
-            )))
-        )])
+        vec![
+            ASTNode::Declaration(
+                Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
+                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
+            ),
+            ASTNode::Assignment(
+                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
+                Box::new(ASTNode::ExpressionNode(
+                    Expression::IntegerLiteralExpression(
+                    Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}))
+                )
+            )
+        ])
     )]
     fn test_parse_basic_declaration(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case.clone()).lex();
