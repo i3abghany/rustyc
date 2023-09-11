@@ -9,8 +9,8 @@ pub enum Expression {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ASTNode {
     ExpressionNode(Expression),
-    // TODO split declaration and assignment into two separate nodes.
-    Declaration(Token, Token, Box<ASTNode>), // Type, Identifier, Expression
-    ReturnStatement(Token, Box<ASTNode>),    // ReturnKeyword, Expression
+    Assignment(Token, Box<ASTNode>),      // Identifier, Expression
+    Declaration(Token, Token),            // Type, Identifier
+    ReturnStatement(Token, Box<ASTNode>), // ReturnKeyword, Expression
     Program(Vec<ASTNode>),
 }

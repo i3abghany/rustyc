@@ -23,7 +23,8 @@ impl CodeGenerator {
         match root {
             ASTNode::Program(_) => self.generate_program(root),
             ASTNode::ReturnStatement(_, _) => self.generate_return_statement(root),
-            ASTNode::Declaration(_, _, _) => self.generate_declaration(root),
+            ASTNode::Declaration(_, _) => self.generate_declaration(root),
+            ASTNode::Assignment(_, _) => self.generate_assignment(root),
             ASTNode::ExpressionNode(_) => self.generate_expression(root),
         }
     }
@@ -41,7 +42,11 @@ impl CodeGenerator {
     fn generate_integral_literal(&self, node: &ASTNode) -> String {
         match node {
             ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(token)) => {
-                format!("${}", token.value.clone())
+                format!(
+                    "mov ${}, {}\n",
+                    token.value.clone(),
+                    CodeGenerator::get_reg1(8)
+                )
             }
             _ => panic!(""),
         }
@@ -54,7 +59,14 @@ impl CodeGenerator {
                     .variables
                     .get(token.value.as_str())
                     .unwrap_or_else(|| panic!("Undefined variable: {}", token.value.as_str()));
-                format!("{}(%rbp)", definition.stack_offset)
+                let variable_size = CodeGenerator::variable_size(&definition.variable_type);
+                let mov_instruction = CodeGenerator::mov_mnemonic(variable_size);
+                format!(
+                    "{} {}(%rbp), {}\n",
+                    mov_instruction,
+                    definition.stack_offset,
+                    CodeGenerator::get_reg1(variable_size)
+                )
             }
             _ => panic!(""),
         }
@@ -65,7 +77,7 @@ impl CodeGenerator {
         match node {
             ASTNode::Program(nodes_vector) => {
                 for node in nodes_vector {
-                    result.push_str(self.generate(node).as_str());
+                    result.push_str(&self.generate(node));
                 }
                 format!(
                     "push %rbp\n\
@@ -82,10 +94,40 @@ impl CodeGenerator {
     fn generate_return_statement(&mut self, node: &ASTNode) -> String {
         match node {
             ASTNode::ReturnStatement(_, expr_node) => {
-                format!(
+                let mut result = self.generate(expr_node);
+                result.push_str(&format!(
                     "mov %rbp, %rsp\nmov {}, %rax\npop %rbp\nret\n",
-                    self.generate(expr_node)
-                )
+                    CodeGenerator::get_reg1(8)
+                ));
+                result
+            }
+            _ => panic!("Return: Expected a return node, found {:?}", node),
+        }
+    }
+
+    fn generate_assignment(&mut self, node: &ASTNode) -> String {
+        match node {
+            ASTNode::Assignment(identifier, expr_node) => {
+                let variable = self.variables.get(&identifier.value).expect(&format!(
+                    "Assignment: the identifier `{}` is not defined",
+                    identifier.value
+                ));
+                let stack_offset = variable.stack_offset;
+
+                // TODO support referential assignment
+                let variable_size = CodeGenerator::variable_size(&variable.variable_type);
+                let mov_instruction = CodeGenerator::mov_mnemonic(variable_size);
+
+                let mut result = self.generate(expr_node);
+
+                result.push_str(&format!(
+                    "{} {}, {}(%rbp)\n",
+                    mov_instruction,
+                    CodeGenerator::get_reg1(variable_size),
+                    stack_offset
+                ));
+
+                result
             }
             _ => panic!(""),
         }
@@ -93,7 +135,7 @@ impl CodeGenerator {
 
     fn generate_declaration(&mut self, node: &ASTNode) -> String {
         match node {
-            ASTNode::Declaration(variable_type, identifier, expr_node) => {
+            ASTNode::Declaration(variable_type, identifier) => {
                 if self.variables.contains_key(&identifier.value) {
                     panic!(
                         "Declaration: the identifier `{}` is already in use",
@@ -110,28 +152,33 @@ impl CodeGenerator {
                 );
 
                 let variable_size = CodeGenerator::variable_size(&variable_type.value);
-                let mov_mnemonic = match variable_size {
-                    1 => "movb",
-                    2 => "movw",
-                    4 => "movl",
-                    8 => "movq",
-                    _ => panic!(""),
-                };
-                let result = format!(
-                    "{} {}, {}(%rbp)\n",
-                    mov_mnemonic,
-                    self.generate(expr_node),
-                    (self.stack_top)
-                );
                 self.stack_top -= variable_size as i64;
-                result
             }
-            _ => panic!(),
+            _ => panic!("Declaration: Expected declaration node, found {:?}", node),
         }
+        "".to_string()
     }
 
     fn variable_size(variable_type: &str) -> usize {
         4
+    }
+
+    fn mov_mnemonic(size: usize) -> &'static str {
+        match size {
+            1 => "movb",
+            2 => "movw",
+            4 => "movl",
+            8 => "movq",
+            _ => panic!("Unsupported size `{}`.", size),
+        }
+    }
+
+    fn get_reg1(size: usize) -> &'static str {
+        match size {
+            1 | 2 | 4 => "%ebx",
+            8 => "%rbx",
+            _ => panic!("Invalid register size: {}", size),
+        }
     }
 }
 
@@ -156,8 +203,9 @@ mod tests {
         "push %rbp\n\
         mov %rsp, %rbp\n\
         subq $8, %rsp\n\
+        mov $3, %rbx\n\
         mov %rbp, %rsp\n\
-        mov $3, %rax\n\
+        mov %rbx, %rax\n\
         pop %rbp\n\
         ret\n"
     )]
@@ -185,9 +233,11 @@ mod tests {
         "push %rbp\n\
         mov %rsp, %rbp\n\
         subq $12, %rsp\n\
-        movl $42, -8(%rbp)\n\
+        mov $42, %rbx\n\
+        movl %ebx, -8(%rbp)\n\
+        movl -8(%rbp), %ebx\n\
         mov %rbp, %rsp\n\
-        mov -8(%rbp), %rax\n\
+        mov %rbx, %rax\n\
         pop %rbp\n\
         ret\n"
     )]
@@ -196,14 +246,41 @@ mod tests {
         "push %rbp\n\
         mov %rsp, %rbp\n\
         subq $16, %rsp\n\
-        movl $42, -8(%rbp)\n\
-        movl $12, -12(%rbp)\n\
+        mov $42, %rbx\n\
+        movl %ebx, -8(%rbp)\n\
+        mov $12, %rbx\n\
+        movl %ebx, -12(%rbp)\n\
+        movl -12(%rbp), %ebx\n\
         mov %rbp, %rsp\n\
-        mov -12(%rbp), %rax\n\
+        mov %rbx, %rax\n\
         pop %rbp\n\
         ret\n"
     )]
     fn test_return_variable(#[case] test_case: String, #[case] expected: String) {
+        let generated = generate_code(test_case);
+        assert_eq!(expected, generated);
+    }
+
+    #[rstest::rstest]
+    #[case(
+        "int x = 1; int y = x; return y;",
+        "push %rbp\n\
+        mov %rsp, %rbp\n\
+        subq $16, %rsp\n\
+        mov $1, %rbx\n\
+        movl %ebx, -8(%rbp)\n\
+        movl -8(%rbp), %ebx\n\
+        movl %ebx, -12(%rbp)\n\
+        movl -12(%rbp), %ebx\n\
+        mov %rbp, %rsp\n\
+        mov %rbx, %rax\n\
+        pop %rbp\n\
+        ret\n"
+    )]
+    fn test_assignment_with_variable_expression(
+        #[case] test_case: String,
+        #[case] expected: String,
+    ) {
         let generated = generate_code(test_case);
         assert_eq!(expected, generated);
     }
