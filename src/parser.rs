@@ -140,4 +140,23 @@ mod tests {
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);
     }
+
+    #[rstest::rstest]
+    #[case("return 123")]
+    #[case("int x")]
+    #[case("int x = 123")]
+    #[should_panic]
+    fn test_missing_simicolon(#[case] test_case: String) {
+        let tokens = Lexer::new(test_case).lex();
+        let _result = Parser::new(tokens).parse();
+    }
+
+    #[rstest::rstest]
+    #[case("return;")]
+    #[case("int x =;")]
+    #[should_panic]
+    fn test_missing_expression(#[case] test_case: String) {
+        let tokens = Lexer::new(test_case).lex();
+        let _result = Parser::new(tokens).parse();
+    }
 }
