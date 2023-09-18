@@ -1,9 +1,19 @@
 use crate::ast::*;
 use crate::tokens::*;
+use phf::phf_map;
+use crate::ast::ASTNode::ExpressionNode;
 
 pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+}
+
+fn operator_precedence(token_type: TokenType) -> u8 {
+    match token_type {
+        TokenType::Plus | TokenType::Minus => 1,
+        TokenType::Star | TokenType::Slash => 2,
+        _ => 0,
+    }
 }
 
 impl Parser {
@@ -54,15 +64,47 @@ impl Parser {
         self.pos += 1;
     }
 
-    fn parse_expression(&mut self) -> ASTNode {
+    fn parse_expression(&mut self) -> Expression {
+        self.parse_expression_internal(0)
+    }
+
+    fn parse_expression_internal(&mut self, parent_precedence: u8) -> Expression {
+        let mut left = self.parse_primary_expression();
+        loop {
+            let operator_token = self.current().clone();
+            let operator_precedence = operator_precedence(operator_token.token_type.clone());
+            if parent_precedence >= operator_precedence {
+                //  Because parent_precedence >= 0, this
+                // condition is satisfied too if the current
+                // token is not an operator, e.g. ; or ).
+                break;
+            }
+            self.advance();
+            let right = self.parse_expression_internal(operator_precedence);
+            left = Expression::BinaryExpression(
+                operator_token,
+                Box::new(left),
+                Box::new(right),
+            )
+        }
+        left
+    }
+
+    fn parse_primary_expression(&mut self) -> Expression {
         match self.current().token_type {
             TokenType::Identifier => {
-                ASTNode::ExpressionNode(Expression::VariableExpression(self.consume()))
+                Expression::VariableExpression(self.consume())
             }
             TokenType::IntegerLiteral => {
-                ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(self.consume()))
+                Expression::IntegerLiteralExpression(self.consume())
             }
-            _ => panic!("Unexpected token: {:?}", self.current()),
+            TokenType::OpenParen => {
+                self.advance();
+                let expr = Expression::ParenthesizedExpression(Box::new(self.parse_expression()));
+                self.try_consume(TokenType::CloseParen);
+                expr
+            }
+            _ => panic!("Unexpected token: {:?}", self.current())
         }
     }
 
@@ -71,7 +113,7 @@ impl Parser {
         self.try_consume(TokenType::Equals);
         let expression = self.parse_expression();
         self.try_consume(TokenType::SemiColon);
-        ASTNode::Assignment(identifier_token, Box::new(expression))
+        ASTNode::Assignment(identifier_token, Box::new(ExpressionNode(expression)))
     }
 
     fn parse_int_literal(&mut self) -> ASTNode {
@@ -110,7 +152,7 @@ impl Parser {
         let expression = self.parse_expression();
         self.try_consume(TokenType::SemiColon);
 
-        ASTNode::ReturnStatement(return_keyword, Box::new(expression))
+        ASTNode::ReturnStatement(return_keyword, Box::new(ExpressionNode(expression)))
     }
 }
 
@@ -152,6 +194,76 @@ mod tests {
         ))])
     )]
     fn test_parse_return_statement(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    use crate::ast::ASTNode::*;
+
+    #[rstest::rstest]
+    #[case("return 1 + 2;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::BinaryExpression(
+                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
+                    Box::new(Expression::IntegerLiteralExpression(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::IntegerLiteralExpression(
+                        Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
+                    ))
+                )
+            ))
+        )])
+    )]
+    #[case("return 1 + 2 * 3;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::BinaryExpression(
+                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
+                    Box::new(Expression::IntegerLiteralExpression(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::BinaryExpression(
+                        Token{value: "*".to_string(), token_type: TokenType::Star, pos: 13},
+                        Box::new(Expression::IntegerLiteralExpression(
+                            Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
+                        )),
+                        Box::new(Expression::IntegerLiteralExpression(
+                            Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 15}
+                        ))
+                    ))
+                )
+            ))
+        )])
+    )]
+    #[case("return 1 + x * 3;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+                Box::new(ExpressionNode(
+                    Expression::BinaryExpression(
+                        Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
+                        Box::new(Expression::IntegerLiteralExpression(
+                            Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                        )),
+                        Box::new(Expression::BinaryExpression(
+                            Token{value: "*".to_string(), token_type: TokenType::Star, pos: 13},
+                            Box::new(Expression::VariableExpression(
+                                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 11}
+                            )),
+                            Box::new(Expression::IntegerLiteralExpression(
+                                Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 15}
+                            ))
+                        ))
+                    )
+                ))
+            )
+        ])
+    )]
+    fn test_parse_binary_expression(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);

@@ -10,6 +10,11 @@ pub enum TokenType {
     Do,
     Equals,
     Plus,
+    Minus,
+    Star,
+    Slash,
+    OpenParen,
+    CloseParen,
     SemiColon,
     IntegerLiteral,
     Eof,
@@ -41,6 +46,11 @@ pub const KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
 
 pub const SINGLE_CHAR_TOKENS: phf::Map<char, TokenType> = phf_map! {
     '+' => TokenType::Plus,
+    '-' => TokenType::Minus,
+    '*' => TokenType::Star,
+    '/' => TokenType::Slash,
     '=' => TokenType::Equals,
     ';' => TokenType::SemiColon,
+    '(' => TokenType::OpenParen,
+    ')' => TokenType::CloseParen,
 };

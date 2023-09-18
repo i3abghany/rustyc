@@ -34,6 +34,7 @@ impl CodeGenerator {
             ASTNode::ExpressionNode(expr) => match expr {
                 Expression::IntegerLiteralExpression(_) => self.generate_integral_literal(node),
                 Expression::VariableExpression(_) => self.generate_variable_expression(node),
+                _ => panic!(""),
             },
             _ => panic!(""),
         }
