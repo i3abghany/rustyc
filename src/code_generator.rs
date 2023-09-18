@@ -348,8 +348,6 @@ mod tests {
 
     #[rstest::rstest]
     #[case("return 5 + 3 * 2 + (2 * 19 * 4) / 2 + 9 * 12 / 3 * 3;", 195)]
-    // $? returns the exit code of the last mod 256.
-    // As of now, we test against the full result.
     #[case(
         "int x = 312; int y = 99; int z; z = 2 * x / 3 + y * y; return z - x;",
         9697

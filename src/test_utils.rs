@@ -32,7 +32,12 @@ pub fn expect_return_code(source: String, expected: i32) -> std::io::Result<()> 
         .expect("Failed to execute generated executable");
     let exit_code = output.status.code().unwrap();
     remove_file(&exe_path);
-    assert_eq!(expected, exit_code);
+
+    // Some platforms return a full-precision number
+    // while others only return the least significant
+    // byte. We cut both down to their least significant
+    // byte for tests to be consistent across platforms.
+    assert_eq!(expected % 256, exit_code % 256);
 
     Ok(())
 }
