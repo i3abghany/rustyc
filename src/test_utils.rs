@@ -2,7 +2,7 @@ use std::fs::{File, remove_file};
 use std::io::Write;
 use std::process::Command;
 use uuid::Uuid;
-pub fn expect_return_code(source: String, expected: i32) -> std::io::Result<()> {
+pub fn expect_exit_code(source: String, expected: i32) -> std::io::Result<()> {
 
     // Instead of using named temp files, normal files are
     // created in the same directory to avoid permissions-
