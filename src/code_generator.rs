@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::tokens::*;
 use std::collections::HashMap;
 
 pub struct Variable {
@@ -25,24 +26,64 @@ impl CodeGenerator {
             ASTNode::ReturnStatement(_, _) => self.generate_return_statement(root),
             ASTNode::Declaration(_, _) => self.generate_declaration(root),
             ASTNode::Assignment(_, _) => self.generate_assignment(root),
-            ASTNode::ExpressionNode(_) => self.generate_expression(root),
+            ASTNode::ExpressionNode(expression) => self.generate_expression(expression),
         }
     }
 
-    fn generate_expression(&self, node: &ASTNode) -> String {
-        match node {
-            ASTNode::ExpressionNode(expr) => match expr {
-                Expression::IntegerLiteral(_) => self.generate_integral_literal(node),
-                Expression::Variable(_) => self.generate_variable_expression(node),
-                _ => panic!(""),
-            },
+    fn generate_expression(&mut self, expression: &Expression) -> String {
+        match expression {
+            Expression::IntegerLiteral(_) => self.generate_integral_literal(expression),
+            Expression::Variable(_) => self.generate_variable_expression(expression),
+            Expression::Binary(_, _, _) => self.generate_binary_expression(expression),
+            Expression::Parenthesized(internal_expression) => {
+                self.generate_expression(internal_expression)
+            }
+        }
+    }
+
+    fn generate_binary_expression(&mut self, expression: &Expression) -> String {
+        let mut result = String::new();
+        match expression {
+            Expression::Binary(token, left, right) => {
+                result.push_str(&self.generate_expression(right));
+                result.push_str(format!("push {}\n", CodeGenerator::get_reg1(8)).as_str());
+                result.push_str(&self.generate_expression(left));
+                result.push_str(format!("pop {}\n", CodeGenerator::get_reg2(8)).as_str());
+
+                // TODO: Support floating point operations
+                let reg1 = CodeGenerator::get_reg1(8);
+                let reg2 = CodeGenerator::get_reg2(8);
+                match token.token_type {
+                    TokenType::Plus => {
+                        result.push_str(&format!("add {}, {}\n", reg2, reg1));
+                    }
+                    TokenType::Minus => {
+                        result.push_str(&format!("sub {}, {}\n", reg2, reg1));
+                    }
+                    TokenType::Star => {
+                        result.push_str(&format!("imul {}, {}\n", reg2, reg1));
+                    }
+                    TokenType::Slash => {
+                        result.push_str(&format!("push %rax\n"));
+                        result.push_str(&format!("push %rdx\n"));
+                        result.push_str(&format!("mov {}, %rax\n", reg1));
+                        result.push_str(&format!("mov $0, %rdx\n"));
+                        result.push_str(&format!("idiv {}\n", reg2));
+                        result.push_str(&format!("mov %rax, {}\n", reg1));
+                        result.push_str(&format!("pop %rdx\n"));
+                        result.push_str(&format!("pop %rax\n"));
+                    }
+                    _ => panic!(""),
+                }
+            }
             _ => panic!(""),
         }
+        result
     }
 
-    fn generate_integral_literal(&self, node: &ASTNode) -> String {
-        match node {
-            ASTNode::ExpressionNode(Expression::IntegerLiteral(token)) => {
+    fn generate_integral_literal(&self, expression: &Expression) -> String {
+        match expression {
+            Expression::IntegerLiteral(token) => {
                 format!(
                     "mov ${}, {}\n",
                     token.value.clone(),
@@ -53,9 +94,9 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_variable_expression(&self, node: &ASTNode) -> String {
-        match node {
-            ASTNode::ExpressionNode(Expression::Variable(token)) => {
+    fn generate_variable_expression(&self, expression: &Expression) -> String {
+        match expression {
+            Expression::Variable(token) => {
                 let definition = self
                     .variables
                     .get(token.value.as_str())
@@ -183,6 +224,14 @@ impl CodeGenerator {
             _ => panic!("Invalid register size: {}", size),
         }
     }
+
+    fn get_reg2(size: usize) -> &'static str {
+        match size {
+            1 | 2 | 4 => "%ecx",
+            8 => "%rcx",
+            _ => panic!("Invalid register size: {}", size),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -191,6 +240,7 @@ mod tests {
     use super::CodeGenerator;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
+    use crate::test_utils::*;
 
     fn generate_code(src: String) -> String {
         let tokens = Lexer::new(src).lex();
@@ -294,5 +344,18 @@ mod tests {
     ) {
         let generated = generate_code(test_case);
         assert_eq!(expected, generated);
+    }
+
+    #[rstest::rstest]
+    #[case("return 5 + 3 * 2 + (2 * 19 * 4) / 2 + 9 * 12 / 3 * 3;", 195)]
+    // $? returns the exit code of the last mod 256.
+    // As of now, we test against the full result.
+    #[case(
+        "int x = 312; int y = 99; int z; z = 2 * x / 3 + y * y; return z - x;",
+        9697
+    )]
+    fn test_generate_expression_with_precedence(#[case] test_case: String, #[case] expected: i32) {
+        let generated = generate_code(test_case);
+        expect_return_code(generated, expected);
     }
 }
