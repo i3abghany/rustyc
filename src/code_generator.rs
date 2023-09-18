@@ -354,6 +354,6 @@ mod tests {
     )]
     fn test_generate_expression_with_precedence(#[case] test_case: String, #[case] expected: i32) {
         let generated = generate_code(test_case);
-        expect_return_code(generated, expected);
+        expect_exit_code(generated, expected);
     }
 }
