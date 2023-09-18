@@ -32,8 +32,8 @@ impl CodeGenerator {
     fn generate_expression(&self, node: &ASTNode) -> String {
         match node {
             ASTNode::ExpressionNode(expr) => match expr {
-                Expression::IntegerLiteralExpression(_) => self.generate_integral_literal(node),
-                Expression::VariableExpression(_) => self.generate_variable_expression(node),
+                Expression::IntegerLiteral(_) => self.generate_integral_literal(node),
+                Expression::Variable(_) => self.generate_variable_expression(node),
                 _ => panic!(""),
             },
             _ => panic!(""),
@@ -42,7 +42,7 @@ impl CodeGenerator {
 
     fn generate_integral_literal(&self, node: &ASTNode) -> String {
         match node {
-            ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(token)) => {
+            ASTNode::ExpressionNode(Expression::IntegerLiteral(token)) => {
                 format!(
                     "mov ${}, {}\n",
                     token.value.clone(),
@@ -55,7 +55,7 @@ impl CodeGenerator {
 
     fn generate_variable_expression(&self, node: &ASTNode) -> String {
         match node {
-            ASTNode::ExpressionNode(Expression::VariableExpression(token)) => {
+            ASTNode::ExpressionNode(Expression::Variable(token)) => {
                 let definition = self
                     .variables
                     .get(token.value.as_str())

@@ -2,10 +2,10 @@ use crate::tokens::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expression {
-    IntegerLiteralExpression(Token),
-    VariableExpression(Token),
-    BinaryExpression(Token, Box<Expression>, Box<Expression>),
-    ParenthesizedExpression(Box<Expression>),
+    IntegerLiteral(Token),
+    Variable(Token),
+    Binary(Token, Box<Expression>, Box<Expression>),
+    Parenthesized(Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
