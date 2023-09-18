@@ -81,7 +81,7 @@ impl Parser {
             }
             self.advance();
             let right = self.parse_expression_internal(operator_precedence);
-            left = Expression::BinaryExpression(
+            left = Expression::Binary(
                 operator_token,
                 Box::new(left),
                 Box::new(right),
@@ -93,14 +93,14 @@ impl Parser {
     fn parse_primary_expression(&mut self) -> Expression {
         match self.current().token_type {
             TokenType::Identifier => {
-                Expression::VariableExpression(self.consume())
+                Expression::Variable(self.consume())
             }
             TokenType::IntegerLiteral => {
-                Expression::IntegerLiteralExpression(self.consume())
+                Expression::IntegerLiteral(self.consume())
             }
             TokenType::OpenParen => {
                 self.advance();
-                let expr = Expression::ParenthesizedExpression(Box::new(self.parse_expression()));
+                let expr = Expression::Parenthesized(Box::new(self.parse_expression()));
                 self.try_consume(TokenType::CloseParen);
                 expr
             }
@@ -117,7 +117,7 @@ impl Parser {
     }
 
     fn parse_int_literal(&mut self) -> ASTNode {
-        ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(self.consume()))
+        ASTNode::ExpressionNode(Expression::IntegerLiteral(self.consume()))
     }
 
     fn parse_declaration(&mut self) -> ASTNode {
@@ -172,7 +172,7 @@ mod tests {
             ASTNode::Assignment(
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
                 Box::new(ASTNode::ExpressionNode(
-                    Expression::IntegerLiteralExpression(
+                    Expression::IntegerLiteral(
                     Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}))
                 )
             )
@@ -188,7 +188,7 @@ mod tests {
     #[case("return 123;", ASTNode::Program(
         vec![ASTNode::ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
-            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteralExpression(
+            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "123".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
             ))
         ))])
@@ -206,12 +206,12 @@ mod tests {
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
-                Expression::BinaryExpression(
+                Expression::Binary(
                     Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
-                    Box::new(Expression::IntegerLiteralExpression(
+                    Box::new(Expression::IntegerLiteral(
                         Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
                     )),
-                    Box::new(Expression::IntegerLiteralExpression(
+                    Box::new(Expression::IntegerLiteral(
                         Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
                     ))
                 )
@@ -222,17 +222,17 @@ mod tests {
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
-                Expression::BinaryExpression(
+                Expression::Binary(
                     Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
-                    Box::new(Expression::IntegerLiteralExpression(
+                    Box::new(Expression::IntegerLiteral(
                         Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
                     )),
-                    Box::new(Expression::BinaryExpression(
+                    Box::new(Expression::Binary(
                         Token{value: "*".to_string(), token_type: TokenType::Star, pos: 13},
-                        Box::new(Expression::IntegerLiteralExpression(
+                        Box::new(Expression::IntegerLiteral(
                             Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
                         )),
-                        Box::new(Expression::IntegerLiteralExpression(
+                        Box::new(Expression::IntegerLiteral(
                             Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 15}
                         ))
                     ))
@@ -244,17 +244,17 @@ mod tests {
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
                 Box::new(ExpressionNode(
-                    Expression::BinaryExpression(
+                    Expression::Binary(
                         Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
-                        Box::new(Expression::IntegerLiteralExpression(
+                        Box::new(Expression::IntegerLiteral(
                             Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
                         )),
-                        Box::new(Expression::BinaryExpression(
+                        Box::new(Expression::Binary(
                             Token{value: "*".to_string(), token_type: TokenType::Star, pos: 13},
-                            Box::new(Expression::VariableExpression(
+                            Box::new(Expression::Variable(
                                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 11}
                             )),
-                            Box::new(Expression::IntegerLiteralExpression(
+                            Box::new(Expression::IntegerLiteral(
                                 Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 15}
                             ))
                         ))
