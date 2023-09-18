@@ -1,7 +1,7 @@
+use crate::ast::ASTNode::ExpressionNode;
 use crate::ast::*;
 use crate::tokens::*;
 use phf::phf_map;
-use crate::ast::ASTNode::ExpressionNode;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -81,30 +81,22 @@ impl Parser {
             }
             self.advance();
             let right = self.parse_expression_internal(operator_precedence);
-            left = Expression::Binary(
-                operator_token,
-                Box::new(left),
-                Box::new(right),
-            )
+            left = Expression::Binary(operator_token, Box::new(left), Box::new(right))
         }
         left
     }
 
     fn parse_primary_expression(&mut self) -> Expression {
         match self.current().token_type {
-            TokenType::Identifier => {
-                Expression::Variable(self.consume())
-            }
-            TokenType::IntegerLiteral => {
-                Expression::IntegerLiteral(self.consume())
-            }
+            TokenType::Identifier => Expression::Variable(self.consume()),
+            TokenType::IntegerLiteral => Expression::IntegerLiteral(self.consume()),
             TokenType::OpenParen => {
                 self.advance();
                 let expr = Expression::Parenthesized(Box::new(self.parse_expression()));
                 self.try_consume(TokenType::CloseParen);
                 expr
             }
-            _ => panic!("Unexpected token: {:?}", self.current())
+            _ => panic!("Unexpected token: {:?}", self.current()),
         }
     }
 
