@@ -81,10 +81,12 @@ impl CodeGenerator {
                     result.push_str(&self.generate(node));
                 }
                 format!(
-                    "push %rbp\n\
-                         mov %rsp, %rbp\n\
-                         subq ${}, %rsp\n\
-                         {}",
+                    ".global main\n\
+                    main:\n\
+                    push %rbp\n\
+                    mov %rsp, %rbp\n\
+                    subq ${}, %rsp\n\
+                    {}",
                     -self.stack_top, result
                 )
             }
@@ -201,7 +203,9 @@ mod tests {
     #[rstest::rstest]
     #[case(
         "return 3;",
-        "push %rbp\n\
+        ".global main\n\
+        main:\n\
+        push %rbp\n\
         mov %rsp, %rbp\n\
         subq $8, %rsp\n\
         mov $3, %rbx\n\
@@ -231,7 +235,9 @@ mod tests {
     #[rstest::rstest]
     #[case(
         "int x = 42; return x;",
-        "push %rbp\n\
+        ".global main\n\
+        main:\n\
+        push %rbp\n\
         mov %rsp, %rbp\n\
         subq $12, %rsp\n\
         mov $42, %rbx\n\
@@ -244,7 +250,9 @@ mod tests {
     )]
     #[case(
         "int x = 42; int y = 12; return y;",
-        "push %rbp\n\
+        ".global main\n\
+        main:\n\
+        push %rbp\n\
         mov %rsp, %rbp\n\
         subq $16, %rsp\n\
         mov $42, %rbx\n\
@@ -265,7 +273,9 @@ mod tests {
     #[rstest::rstest]
     #[case(
         "int x = 1; int y = x; return y;",
-        "push %rbp\n\
+        ".global main\n\
+        main:\n\
+        push %rbp\n\
         mov %rsp, %rbp\n\
         subq $16, %rsp\n\
         mov $1, %rbx\n\
