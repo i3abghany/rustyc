@@ -4,6 +4,8 @@ use crate::tokens::*;
 pub enum Expression {
     IntegerLiteralExpression(Token),
     VariableExpression(Token),
+    BinaryExpression(Token, Box<Expression>, Box<Expression>),
+    ParenthesizedExpression(Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
