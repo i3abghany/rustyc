@@ -52,7 +52,6 @@ impl CodeGenerator {
             Expression::Parenthesized(internal_expression) => {
                 self.generate_expression(internal_expression)
             }
-            _ => panic!(""),
         }
     }
 
