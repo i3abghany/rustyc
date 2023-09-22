@@ -330,8 +330,6 @@ mod tests {
         let _result = Parser::new(tokens).parse();
     }
 
-
-
     #[rstest::rstest]
     #[case("{")]
     #[case("{ int x = 1;")]
