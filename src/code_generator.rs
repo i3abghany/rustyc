@@ -235,7 +235,11 @@ impl CodeGenerator {
     fn generate_declaration(&mut self, node: &ASTNode) -> String {
         match node {
             ASTNode::Declaration(variable_type, identifier) => {
-                if let Some(_) = self.symbol_table.get_at_current_scope(&identifier.value) {
+                if self
+                    .symbol_table
+                    .get_at_current_scope(&identifier.value)
+                    .is_some()
+                {
                     panic!(
                         "Declaration: the identifier `{}` is already in use",
                         identifier.value
