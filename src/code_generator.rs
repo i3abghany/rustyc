@@ -321,19 +321,6 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[ignore] // TODO: inject a return statement in the end.
-    #[case(
-        "int x = 42;",
-        "mov %rsp, %rbp\n\
-        leaq -8(%rsp), %rsp\n\
-        movl $42, (%rsp)\n"
-    )]
-    fn test_generate_declaration(#[case] test_case: String, #[case] expected: String) {
-        let generated = generate_code(test_case);
-        assert_eq!(expected, generated);
-    }
-
-    #[rstest::rstest]
     #[case(
         "int x = 42; return x;",
         ".global main\n\
