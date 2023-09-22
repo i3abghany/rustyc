@@ -3,6 +3,7 @@ use crate::tokens::*;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expression {
     IntegerLiteral(Token),
+    BooleanLiteral(Token),
     Variable(Token),
     Binary(Token, Box<Expression>, Box<Expression>),
     Parenthesized(Box<Expression>),

@@ -38,6 +38,7 @@ impl CodeGenerator {
             Expression::Parenthesized(internal_expression) => {
                 self.generate_expression(internal_expression)
             }
+            _ => panic!(""),
         }
     }
 
@@ -72,6 +73,24 @@ impl CodeGenerator {
                         result.push_str(&format!("mov %rax, {}\n", reg1));
                         result.push_str(&format!("pop %rdx\n"));
                         result.push_str(&format!("pop %rax\n"));
+                    }
+                    // TODO: Account for short-circuiting of boolean expressions.
+                    //  For now, we evaluate the full expression no matter how it
+                    //  is structured.
+                    TokenType::AndAnd => {
+                        result.push_str(&format!("and {}, {}\nand $1, {}\n", reg2, reg1, reg1));
+                    }
+                    TokenType::BarBar => {
+                        result.push_str(&format!("or {}, {}\nand $1, {}\n", reg2, reg1, reg1));
+                    }
+                    TokenType::And => {
+                        result.push_str(&format!("and {}, {}\n", reg2, reg1));
+                    }
+                    TokenType::Bar => {
+                        result.push_str(&format!("or {}, {}\n", reg2, reg1));
+                    }
+                    TokenType::Caret => {
+                        result.push_str(&format!("xor {}, {}\n", reg2, reg1));
                     }
                     _ => panic!(""),
                 }
@@ -348,6 +367,9 @@ mod tests {
 
     #[rstest::rstest]
     #[case("return 5 + 3 * 2 + (2 * 19 * 4) / 2 + 9 * 12 / 3 * 3;", 195)]
+    #[case("return (1 | 2 | 4 | 8 | 16 | 32) & 85;", 21)]
+    #[case("int x = 12; int y = 423; return x || y;", 1)]
+    #[case("int false = 0; int true = 123; return true || false;", 1)]
     #[case(
         "int x = 312; int y = 99; int z; z = 2 * x / 3 + y * y; return z - x;",
         9697
