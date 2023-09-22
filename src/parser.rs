@@ -10,8 +10,13 @@ pub struct Parser {
 
 fn operator_precedence(token_type: TokenType) -> u8 {
     match token_type {
-        TokenType::Plus | TokenType::Minus => 1,
-        TokenType::Star | TokenType::Slash => 2,
+        TokenType::BarBar => 1,
+        TokenType::AndAnd => 2,
+        TokenType::Bar => 3,
+        TokenType::Caret => 4,
+        TokenType::And => 5,
+        TokenType::Plus | TokenType::Minus => 6,
+        TokenType::Star | TokenType::Slash => 7,
         _ => 0,
     }
 }
@@ -232,22 +237,22 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 + x * 3;", ASTNode::Program(
+    #[case("return 1 || x * 3;", ASTNode::Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
                 Box::new(ExpressionNode(
                     Expression::Binary(
-                        Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
+                        Token{value: "||".to_string(), token_type: TokenType::BarBar, pos: 9},
                         Box::new(Expression::IntegerLiteral(
                             Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
                         )),
                         Box::new(Expression::Binary(
-                            Token{value: "*".to_string(), token_type: TokenType::Star, pos: 13},
+                            Token{value: "*".to_string(), token_type: TokenType::Star, pos: 14},
                             Box::new(Expression::Variable(
-                                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 11}
+                                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 12}
                             )),
                             Box::new(Expression::IntegerLiteral(
-                                Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 15}
+                                Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 16}
                             ))
                         ))
                     )

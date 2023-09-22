@@ -21,11 +21,30 @@ impl Lexer {
                 result.push(self.lex_integer());
             } else if c.is_whitespace() {
                 self.advance();
-            } else if let Some(token_type) = self.get_single_char_token(c) {
+            } else if let Some(mut token_type) = self.get_single_char_token(c) {
+                let pos = self.pos;
+                let mut value = String::from(c);
+                match c {
+                    '|' => {
+                        if self.peek(1) == '|' {
+                            value = String::from("||");
+                            token_type = TokenType::BarBar;
+                            self.advance();
+                        }
+                    }
+                    '&' => {
+                        if self.peek(1) == '&' {
+                            value = String::from("&&");
+                            token_type = TokenType::AndAnd;
+                            self.advance();
+                        }
+                    }
+                    _ => {}
+                }
                 result.push(Token {
-                    value: String::from(c),
+                    value,
                     token_type,
-                    pos: self.pos,
+                    pos,
                 });
                 self.advance();
             } else {
@@ -40,6 +59,16 @@ impl Lexer {
         result
     }
 
+    fn peek(&self, offset: usize) -> char {
+        let index = self.pos + offset;
+
+        if index >= self.src.len() {
+            return EOF;
+        }
+
+        self.src.chars().nth(index).unwrap()
+    }
+
     fn advance(&mut self) {
         self.pos += 1;
     }
@@ -51,11 +80,7 @@ impl Lexer {
     }
 
     fn current(&self) -> char {
-        if self.pos >= self.src.len() {
-            return EOF;
-        }
-
-        self.src.chars().nth(self.pos).unwrap()
+        self.peek(0)
     }
 
     fn lex_integer(&mut self) -> Token {
@@ -136,7 +161,14 @@ mod tests {
     #[case("-", TokenType::Minus)]
     #[case("/", TokenType::Slash)]
     #[case(";", TokenType::SemiColon)]
+    #[case("^", TokenType::Caret)]
+    #[case("&", TokenType::And)]
+    #[case("&&", TokenType::AndAnd)]
+    #[case("|", TokenType::Bar)]
+    #[case("||", TokenType::BarBar)]
     #[case("int", TokenType::Type)]
+    #[case("true", TokenType::Identifier)]
+    #[case("false", TokenType::Identifier)]
     #[case("while", TokenType::While)]
     #[case("hello", TokenType::Identifier)]
     #[case("Pa$5W_rd", TokenType::Identifier)]
