@@ -393,9 +393,13 @@ mod tests {
         "int x = 312; int y = 99; int z; z = 2 * x / 3 + y * y; return z - x;",
         9697
     )]
-    fn test_generate_expression_with_precedence(#[case] test_case: String, #[case] expected: i32) {
+    fn test_generate_expression_with_precedence(
+        #[case] test_case: String,
+        #[case] expected: i32,
+    ) -> std::io::Result<()> {
         let generated = generate_code(test_case);
-        expect_exit_code(generated, expected);
+        expect_exit_code(generated, expected)?;
+        Ok(())
     }
 
     #[rstest::rstest]
@@ -404,19 +408,25 @@ mod tests {
     #[case("int x = 6; { int y = 55; return y; }", 55)]
     #[case("int x = 1; { int x = 2; { int x = 3; return x; } }", 3)]
     #[case("int x = 1; { int y = 2; { return x; } }", 1)]
+    #[case("{{{{{{{{{{ return 5; }}}}}}}}}}", 5)]
+    #[case("{{{{{{ }}}} return 1; }}", 1)]
     #[case(
         "int x = 1; { int y = 5; } { int y = 6; } int y = 7; { int y = 8; return y; }",
         8
     )]
-    #[case("{{{{{{{{{{ return 5; }}}}}}}}}}", 5)]
-    fn test_generated_scoped_programs(#[case] test_case: String, #[case] expected: i32) {
+    fn test_generated_scoped_programs(
+        #[case] test_case: String,
+        #[case] expected: i32,
+    ) -> std::io::Result<()> {
         let generated = generate_code(test_case);
-        expect_exit_code(generated, expected);
+        expect_exit_code(generated, expected)?;
+        Ok(())
     }
 
     #[rstest::rstest]
     #[case("{ int x = 4; } return x;")]
     #[case("{ int x = 4; } { int y = 5; int z = 6; } return x + z;")]
+    #[case("{{{{{{ }}}} return 1; }")]
     #[should_panic]
     fn test_undefined_variables_in_scope(#[case] test_case: String) {
         let generated = generate_code(test_case);
