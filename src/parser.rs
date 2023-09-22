@@ -33,17 +33,44 @@ impl Parser {
             if c.token_type == TokenType::Eof {
                 break;
             }
-            result.push(self.parse_statement());
+
+            if c.token_type == TokenType::OpenCurly {
+                result.push(self.parse_scope());
+            } else {
+                result.push(self.parse_statement().unwrap());
+            }
         }
         ASTNode::Program(result)
     }
 
-    fn parse_statement(&mut self) -> ASTNode {
+    fn try_advance(&mut self, token_type: TokenType) {
+        if self.current().token_type == token_type {
+            self.advance();
+        } else {
+            panic!("Expected {:?}, found: {:?}", token_type, self.current());
+        }
+    }
+
+    fn parse_scope(&mut self) -> ASTNode {
+        let mut result = Vec::new();
+        self.try_advance(TokenType::OpenCurly);
+        loop {
+            if let Some(statement) = self.parse_statement() {
+                result.push(statement);
+            } else {
+                self.try_advance(TokenType::CloseCurly);
+                break;
+            }
+        }
+        ASTNode::Scope(result)
+    }
+
+    fn parse_statement(&mut self) -> Option<ASTNode> {
         match self.current().token_type {
-            TokenType::Type => self.parse_declaration(),
-            TokenType::Return => self.parse_return_statement(),
-            TokenType::Identifier => self.parse_assignment(),
-            _ => panic!("Parser: Unexpected token {:?}", self.current()),
+            TokenType::Type => Some(self.parse_declaration()),
+            TokenType::Return => Some(self.parse_return_statement()),
+            TokenType::Identifier => Some(self.parse_assignment()),
+            _ => None,
         }
     }
 
@@ -260,6 +287,29 @@ mod tests {
             )
         ])
     )]
+	#[case("{ return 1 || x * 3; }", ASTNode::Program(vec![ASTNode::Scope(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 2},
+                Box::new(ExpressionNode(
+                    Expression::Binary(
+                        Token{value: "||".to_string(), token_type: TokenType::BarBar, pos: 11},
+                        Box::new(Expression::IntegerLiteral(
+                            Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 9}
+                        )),
+                        Box::new(Expression::Binary(
+                            Token{value: "*".to_string(), token_type: TokenType::Star, pos: 16},
+                            Box::new(Expression::Variable(
+                                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 14}
+                            )),
+                            Box::new(Expression::IntegerLiteral(
+                                Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 18}
+                            ))
+                        ))
+                    )
+                ))
+            )
+        ])]
+    ))]
     fn test_parse_binary_expression(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
