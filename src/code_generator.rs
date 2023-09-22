@@ -1,22 +1,17 @@
+use crate::ast::ASTNode::*;
 use crate::ast::*;
+use crate::symbol_table;
+use crate::symbol_table::*;
 use crate::tokens::*;
-use std::collections::HashMap;
-
-pub struct Variable {
-    variable_type: String, // TODO change to enum
-    stack_offset: i64,
-}
 
 pub struct CodeGenerator {
-    stack_top: i64,
-    variables: HashMap<String, Variable>,
+    symbol_table: SymbolTable,
 }
 
 impl CodeGenerator {
     pub fn new() -> Self {
         Self {
-            stack_top: -8, // Reserves initial space for the return address
-            variables: HashMap::default(),
+            symbol_table: SymbolTable::new(),
         }
     }
 
@@ -27,6 +22,7 @@ impl CodeGenerator {
             ASTNode::Declaration(_, _) => self.generate_declaration(root),
             ASTNode::Assignment(_, _) => self.generate_assignment(root),
             ASTNode::ExpressionNode(expression) => self.generate_expression(expression),
+            _ => panic!(""),
         }
     }
 
@@ -117,17 +113,21 @@ impl CodeGenerator {
         match expression {
             Expression::Variable(token) => {
                 let definition = self
-                    .variables
+                    .symbol_table
                     .get(token.value.as_str())
                     .unwrap_or_else(|| panic!("Undefined variable: {}", token.value.as_str()));
-                let variable_size = CodeGenerator::variable_size(&definition.variable_type);
-                let mov_instruction = CodeGenerator::mov_mnemonic(variable_size);
-                format!(
-                    "{} {}(%rbp), {}\n",
-                    mov_instruction,
-                    definition.stack_offset,
-                    CodeGenerator::get_reg1(variable_size)
-                )
+                match definition {
+                    Symbol::Variable { stack_offset, .. } => {
+                        let mov_instruction = CodeGenerator::mov_mnemonic(definition.size());
+                        format!(
+                            "{} {}(%rbp), {}\n",
+                            mov_instruction,
+                            stack_offset,
+                            CodeGenerator::get_reg1(definition.size())
+                        )
+                    }
+                    _ => panic!(""),
+                }
             }
             _ => panic!(""),
         }
@@ -137,9 +137,13 @@ impl CodeGenerator {
         let mut result = String::new();
         match node {
             ASTNode::Program(nodes_vector) => {
+                self.symbol_table.push_scope(symbol_table::Scope::new(-8));
+                self.symbol_table.reset_largest_offset();
                 for node in nodes_vector {
                     result.push_str(&self.generate(node));
                 }
+                self.symbol_table.pop_scope();
+
                 format!(
                     ".global main\n\
                     main:\n\
@@ -147,7 +151,8 @@ impl CodeGenerator {
                     mov %rsp, %rbp\n\
                     subq ${}, %rsp\n\
                     {}",
-                    -self.stack_top, result
+                    -self.symbol_table.current_largest_offset(),
+                    result
                 )
             }
             _ => panic!(""),
@@ -171,25 +176,30 @@ impl CodeGenerator {
     fn generate_assignment(&mut self, node: &ASTNode) -> String {
         match node {
             ASTNode::Assignment(identifier, expr_node) => {
-                let variable = self.variables.get(&identifier.value).expect(&format!(
-                    "Assignment: the identifier `{}` is not defined",
-                    identifier.value
-                ));
-                let stack_offset = variable.stack_offset;
+                let variable = self.symbol_table.get(&identifier.value).unwrap_or_else(|| {
+                    panic!(
+                        "Assignment: the identifier `{}` is not defined",
+                        identifier.value
+                    )
+                });
+                let mut variable_stack_offset = 0;
+                let variable_size = variable.size();
+                match variable {
+                    Symbol::Variable { stack_offset, .. } => {
+                        variable_stack_offset = *stack_offset;
+                    }
+                }
 
                 // TODO support referential assignment
-                let variable_size = CodeGenerator::variable_size(&variable.variable_type);
-                let mov_instruction = CodeGenerator::mov_mnemonic(variable_size);
-
+                let mov_instruction = CodeGenerator::mov_mnemonic(variable.size());
                 let mut result = self.generate(expr_node);
 
                 result.push_str(&format!(
                     "{} {}, {}(%rbp)\n",
                     mov_instruction,
                     CodeGenerator::get_reg1(variable_size),
-                    stack_offset
+                    variable_stack_offset
                 ));
-
                 result
             }
             _ => panic!(""),
@@ -199,31 +209,23 @@ impl CodeGenerator {
     fn generate_declaration(&mut self, node: &ASTNode) -> String {
         match node {
             ASTNode::Declaration(variable_type, identifier) => {
-                if self.variables.contains_key(&identifier.value) {
+                if let Some(_) = self.symbol_table.get_at_current_scope(&identifier.value) {
                     panic!(
                         "Declaration: the identifier `{}` is already in use",
                         identifier.value
                     )
                 }
 
-                self.variables.insert(
-                    identifier.value.clone(),
-                    Variable {
-                        variable_type: variable_type.value.clone(),
-                        stack_offset: self.stack_top,
-                    },
-                );
-
-                let variable_size = CodeGenerator::variable_size(&variable_type.value);
-                self.stack_top -= variable_size as i64;
+                let stack_offset = self.symbol_table.current_scope_stack_top();
+                let symbol = Symbol::Variable {
+                    variable_type: variable_type.value.clone(),
+                    stack_offset,
+                };
+                self.symbol_table.insert(&identifier.value, symbol);
             }
             _ => panic!("Declaration: Expected declaration node, found {:?}", node),
         }
         "".to_string()
-    }
-
-    fn variable_size(variable_type: &str) -> usize {
-        4
     }
 
     fn mov_mnemonic(size: usize) -> &'static str {
