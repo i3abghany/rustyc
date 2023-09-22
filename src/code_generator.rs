@@ -105,10 +105,13 @@ impl CodeGenerator {
                     TokenType::Caret => {
                         result.push_str(&format!("xor {}, {}\n", reg2, reg1));
                     }
-                    _ => panic!(""),
+                    _ => panic!("Unsupported operator: {:?}", token),
                 }
             }
-            _ => panic!(""),
+            _ => panic!(
+                "Internal Error: Expected a binary expression, found: {:#?}",
+                expression
+            ),
         }
         result
     }
@@ -122,7 +125,10 @@ impl CodeGenerator {
                     CodeGenerator::get_reg1(8)
                 )
             }
-            _ => panic!(""),
+            _ => panic!(
+                "Internal Error: Expected integral literal, found: {:#?}",
+                expression
+            ),
         }
     }
 
@@ -146,7 +152,10 @@ impl CodeGenerator {
                     _ => panic!(""),
                 }
             }
-            _ => panic!(""),
+            _ => panic!(
+                "Internal Error: Expected variable expression, found: {:#?}",
+                expression
+            ),
         }
     }
 
@@ -172,7 +181,7 @@ impl CodeGenerator {
                     result
                 )
             }
-            _ => panic!(""),
+            _ => panic!("Internal Error: Expected program node, found {:?}", node),
         }
     }
 
