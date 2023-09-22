@@ -414,4 +414,12 @@ mod tests {
         let generated = generate_code(test_case);
         expect_exit_code(generated, expected);
     }
+
+    #[rstest::rstest]
+    #[case("{ int x = 4; } return x;")]
+    #[case("{ int x = 4; } { int y = 5; int z = 6; } return x + z;")]
+    #[should_panic]
+    fn test_undefined_variables_in_scope(#[case] test_case: String) {
+        let generated = generate_code(test_case);
+    }
 }

@@ -329,4 +329,19 @@ mod tests {
         let tokens = Lexer::new(test_case).lex();
         let _result = Parser::new(tokens).parse();
     }
+
+
+
+    #[rstest::rstest]
+    #[case("{")]
+    #[case("{ int x = 1;")]
+    #[case("{ return 1;")]
+    #[case(" return 1; }")]
+    #[case("{ return 1;")]
+    #[case("}")]
+    #[should_panic]
+    fn test_invalid_scope_syntax(#[case] test_case: String) {
+        let tokens = Lexer::new(test_case).lex();
+        let _result = Parser::new(tokens).parse();
+    }
 }
