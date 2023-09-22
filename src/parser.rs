@@ -2,6 +2,7 @@ use crate::ast::ASTNode::ExpressionNode;
 use crate::ast::*;
 use crate::tokens::*;
 use phf::phf_map;
+use std::thread::current;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -26,6 +27,15 @@ impl Parser {
         Self { tokens, pos: 0 }
     }
 
+    pub fn parse_unit(&mut self) -> ASTNode {
+        let c = self.current();
+        if c.token_type == TokenType::OpenCurly {
+            self.parse_scope()
+        } else {
+            self.parse_statement()
+        }
+    }
+
     pub fn parse(&mut self) -> ASTNode {
         let mut result = Vec::new();
         loop {
@@ -33,44 +43,29 @@ impl Parser {
             if c.token_type == TokenType::Eof {
                 break;
             }
-
-            if c.token_type == TokenType::OpenCurly {
-                result.push(self.parse_scope());
-            } else {
-                result.push(self.parse_statement().unwrap());
-            }
+            result.push(self.parse_unit());
         }
         ASTNode::Program(result)
     }
 
-    fn try_advance(&mut self, token_type: TokenType) {
-        if self.current().token_type == token_type {
-            self.advance();
-        } else {
-            panic!("Expected {:?}, found: {:?}", token_type, self.current());
-        }
-    }
-
     fn parse_scope(&mut self) -> ASTNode {
         let mut result = Vec::new();
-        self.try_advance(TokenType::OpenCurly);
-        loop {
-            if let Some(statement) = self.parse_statement() {
-                result.push(statement);
-            } else {
-                self.try_advance(TokenType::CloseCurly);
-                break;
-            }
+        self.try_consume(TokenType::OpenCurly);
+        while self.current().token_type != TokenType::CloseCurly
+            && self.current().token_type != TokenType::Eof
+        {
+            result.push(self.parse_unit());
         }
+        self.try_consume(TokenType::CloseCurly);
         ASTNode::Scope(result)
     }
 
-    fn parse_statement(&mut self) -> Option<ASTNode> {
+    fn parse_statement(&mut self) -> ASTNode {
         match self.current().token_type {
-            TokenType::Type => Some(self.parse_declaration()),
-            TokenType::Return => Some(self.parse_return_statement()),
-            TokenType::Identifier => Some(self.parse_assignment()),
-            _ => None,
+            TokenType::Type => self.parse_declaration(),
+            TokenType::Return => self.parse_return_statement(),
+            TokenType::Identifier => self.parse_assignment(),
+            _ => panic!("Unexpected token: {:?}", self.current()),
         }
     }
 
@@ -287,7 +282,7 @@ mod tests {
             )
         ])
     )]
-	#[case("{ return 1 || x * 3; }", ASTNode::Program(vec![ASTNode::Scope(
+    #[case("{ return 1 || x * 3; }", ASTNode::Program(vec![ASTNode::Scope(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 2},
                 Box::new(ExpressionNode(

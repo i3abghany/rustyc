@@ -22,6 +22,24 @@ impl CodeGenerator {
             ASTNode::Declaration(_, _) => self.generate_declaration(root),
             ASTNode::Assignment(_, _) => self.generate_assignment(root),
             ASTNode::ExpressionNode(expression) => self.generate_expression(expression),
+            ASTNode::Scope(_) => self.generate_scope(root),
+            _ => panic!(""),
+        }
+    }
+
+    fn generate_scope(&mut self, scope: &ASTNode) -> String {
+        let mut result = String::new();
+        match scope {
+            ASTNode::Scope(statements) => {
+                let stack_top = self.symbol_table.current_scope_stack_top();
+                self.symbol_table
+                    .push_scope(symbol_table::Scope::new(stack_top));
+                for statement in statements {
+                    result.push_str(self.generate(statement).as_str());
+                }
+                self.symbol_table.pop_scope();
+                result
+            }
             _ => panic!(""),
         }
     }
@@ -377,6 +395,22 @@ mod tests {
         9697
     )]
     fn test_generate_expression_with_precedence(#[case] test_case: String, #[case] expected: i32) {
+        let generated = generate_code(test_case);
+        expect_exit_code(generated, expected);
+    }
+
+    #[rstest::rstest]
+    #[case("int x = 55; { int y = 5; x = y; } return x;", 5)]
+    #[case("int x = 6; { int y = 55; return y; } return x;", 55)]
+    #[case("int x = 6; { int y = 55; return y; }", 55)]
+    #[case("int x = 1; { int x = 2; { int x = 3; return x; } }", 3)]
+    #[case("int x = 1; { int y = 2; { return x; } }", 1)]
+    #[case(
+        "int x = 1; { int y = 5; } { int y = 6; } int y = 7; { int y = 8; return y; }",
+        8
+    )]
+    #[case("{{{{{{{{{{ return 5; }}}}}}}}}}", 5)]
+    fn test_generated_scoped_programs(#[case] test_case: String, #[case] expected: i32) {
         let generated = generate_code(test_case);
         expect_exit_code(generated, expected);
     }
