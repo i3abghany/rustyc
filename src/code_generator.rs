@@ -480,6 +480,11 @@ mod tests {
     #[case("{ int x = 4; } return x;")]
     #[case("{ int x = 4; } { int y = 5; int z = 6; } return x + z;")]
     #[case("{{{{{{ }}}} return 1; }")]
+    #[case("if (1) { int x = 1; } return x;")]
+    #[case("if (1) { int x = 1; } else if (0) { int y = 1; } return y;")]
+    #[case("if (1) int x = 1; return x;")]
+    #[case("while (0) { int x = 1; } return x;")]
+    #[case("while (0) int x = 1; return x;")]
     #[should_panic]
     fn test_undefined_variables_in_scope(#[case] test_case: String) {
         let generated = generate_code(test_case);
