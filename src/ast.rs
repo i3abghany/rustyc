@@ -17,5 +17,6 @@ pub enum ASTNode {
     Program(Vec<ASTNode>),
     If(Token, Box<ASTNode>, Box<ASTNode>, Option<Box<ASTNode>>), // If, Condition, Body, Else
     While(Token, Box<ASTNode>, Box<ASTNode>),                    // While, Condition, Body
+    DoWhile(Token, Box<ASTNode>, Token, Box<ASTNode>),           // Do, Body, While, Condition
     Scope(Vec<ASTNode>),
 }
