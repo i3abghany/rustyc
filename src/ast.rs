@@ -16,5 +16,6 @@ pub enum ASTNode {
     ReturnStatement(Token, Box<ASTNode>), // ReturnKeyword, Expression
     Program(Vec<ASTNode>),
     If(Token, Box<ASTNode>, Box<ASTNode>, Option<Box<ASTNode>>), // If, Condition, Body, Else
+    While(Token, Box<ASTNode>, Box<ASTNode>),                    // While, Condition, Body
     Scope(Vec<ASTNode>),
 }

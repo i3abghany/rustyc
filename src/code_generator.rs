@@ -25,6 +25,27 @@ impl CodeGenerator {
             ASTNode::ExpressionNode(expression) => self.generate_expression(expression),
             ASTNode::Scope(_) => self.generate_scope(root),
             ASTNode::If(_, _, _, _) => self.generate_if_statement(root),
+            ASTNode::While(..) => self.generate_while(root),
+        }
+    }
+
+    fn generate_while(&mut self, while_node: &ASTNode) -> String {
+        match while_node {
+            ASTNode::While(_, condition, body) => {
+                let mut result = String::new();
+                let enter_label = self.unique_label("__WHILE_ENTER_");
+                let condition = self.generate(condition);
+                let mut body = self.generate(body);
+                body.push_str(&format!("jmp {}\n", enter_label));
+
+                result.push_str(&format!("{}:\n", enter_label));
+                result.push_str(&self.generate_condition_block("__WHILE_EXIT_", &condition, &body));
+                result
+            }
+            _ => panic!(
+                "Internal error: Expected while node, found {:?}",
+                while_node
+            ),
         }
     }
 
@@ -237,16 +258,24 @@ impl CodeGenerator {
         return format!("{}_{}", prefix, Uuid::new_v4().simple());
     }
 
+    fn generate_condition_block(&mut self, prefix: &str, condition: &str, body: &str) -> String {
+        let mut results = String::new();
+        results.push_str(condition);
+        results.push_str(&format!("cmp $0, {}\n", CodeGenerator::get_reg1(8)));
+        let else_label = self.unique_label(prefix);
+        results.push_str(&format!("je {}\n", else_label));
+        results.push_str(body);
+        results.push_str(&format!("{}:\n", else_label));
+        results
+    }
+
     fn generate_if_statement(&mut self, node: &ASTNode) -> String {
         match node {
             ASTNode::If(_, condition, body, else_body) => {
                 let mut results = String::new();
-                results.push_str(&self.generate(condition));
-                results.push_str(&format!("cmp $0, {}\n", CodeGenerator::get_reg1(8)));
-                let else_label = self.unique_label("__IF_");
-                results.push_str(&format!("je {}\n", else_label));
-                results.push_str(&self.generate(body));
-                results.push_str(&format!("{}:\n", else_label));
+                let condition = self.generate(condition);
+                let body = self.generate(body);
+                results.push_str(&self.generate_condition_block("__IF_", &condition, &body));
                 if let Some(else_body) = else_body {
                     results.push_str(&self.generate(else_body));
                 }
@@ -465,6 +494,35 @@ mod tests {
         60
     )]
     fn test_if_statements(#[case] test_case: String, #[case] expected: i32) -> std::io::Result<()> {
+        let generated = generate_code(test_case);
+        expect_exit_code(generated, expected)?;
+        Ok(())
+    }
+
+    // Calculating the maximum Fibonacci number that fits in a 32-bit integer.
+    #[rstest::rstest]
+    #[case(
+        "int x = 45;\
+            int a = 0;\
+            int b = 1;\
+            int c;\
+            while (x) {\
+               c = a + b;\
+               a = b;\
+               b = c;\
+               x = x - 1;\
+            }\
+            return c;",
+        1836311903
+    )]
+    #[case(
+        "int x = 5; int sum = 0; while (x) { sum = sum + x * x; x = x - 1; } return sum; ",
+        55
+    )]
+    fn test_while_statements(
+        #[case] test_case: String,
+        #[case] expected: i32,
+    ) -> std::io::Result<()> {
         let generated = generate_code(test_case);
         expect_exit_code(generated, expected)?;
         Ok(())

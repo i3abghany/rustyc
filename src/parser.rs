@@ -66,18 +66,34 @@ impl Parser {
             TokenType::Return => self.parse_return_statement(),
             TokenType::Identifier => self.parse_assignment(),
             TokenType::If => self.parse_if(),
+            TokenType::While => self.parse_while(),
             _ => panic!("Unexpected token: {:?}", self.current()),
+        }
+    }
+
+    fn parse_while(&mut self) -> ASTNode {
+        let while_token = self.try_consume(TokenType::While);
+        let condition = self.parse_parenthesized_expression();
+        let body = self.parse_scope_or_single_statement();
+        ASTNode::While(
+            while_token,
+            Box::new(ExpressionNode(condition)),
+            Box::new(body),
+        )
+    }
+
+    fn parse_scope_or_single_statement(&mut self) -> ASTNode {
+        if self.current().token_type == TokenType::OpenCurly {
+            self.parse_scope()
+        } else {
+            ASTNode::Scope(vec![self.parse_statement()])
         }
     }
 
     fn parse_if(&mut self) -> ASTNode {
         let if_token = self.try_consume(TokenType::If);
         let condition = self.parse_parenthesized_expression();
-        let body = if self.current().token_type == TokenType::OpenCurly {
-            self.parse_scope()
-        } else {
-            ASTNode::Scope(vec![self.parse_statement()])
-        };
+        let body = self.parse_scope_or_single_statement();
 
         let mut else_body: Option<Box<ASTNode>> = None;
 
@@ -493,6 +509,37 @@ mod tests {
         #[case] test_case: String,
         #[case] expected: ASTNode,
     ) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("while (true) { return 1; }", ASTNode::Program(vec![ASTNode::While(
+        Token { value: "while".to_string(), token_type: TokenType::While, pos: 0 },
+        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 7}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 15},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 22}
+            )))
+        )]))
+    )]))]
+    #[case("while (true) return 1;", ASTNode::Program(vec![ASTNode::While(
+        Token { value: "while".to_string(), token_type: TokenType::While, pos: 0 },
+        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 7}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 13},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 20}
+            )))
+        )]))
+    )]))]
+    fn test_parse_while_statement(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);
