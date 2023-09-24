@@ -26,6 +26,29 @@ impl CodeGenerator {
             ASTNode::Scope(_) => self.generate_scope(root),
             ASTNode::If(_, _, _, _) => self.generate_if_statement(root),
             ASTNode::While(..) => self.generate_while(root),
+            ASTNode::DoWhile(..) => self.generate_do_while(root),
+        }
+    }
+
+    fn generate_do_while(&mut self, node: &ASTNode) -> String {
+        match node {
+            ASTNode::DoWhile(_, body, _, condition) => {
+                let mut result = String::new();
+                let enter_label = self.unique_label("__DO_WHILE_ENTER_");
+                let body_label = self.unique_label("__DO_WHILE_BODY_");
+                result.push_str(&format!("jmp {}\n", body_label));
+                let mut body = format!("{}:\n{}", body_label, &self.generate(body));
+                body.push_str(&format!("jmp {}\n", enter_label));
+                let condition = self.generate(condition);
+                result.push_str(&format!("{}:\n", enter_label));
+                result.push_str(&self.generate_condition_block(
+                    "__DO_WHILE_EXIT_",
+                    &condition,
+                    &body,
+                ));
+                result
+            }
+            _ => panic!("Internal error: Expected do while node, found {:?}", node),
         }
     }
 
@@ -485,6 +508,7 @@ mod tests {
     #[case("if (1) int x = 1; return x;")]
     #[case("while (0) { int x = 1; } return x;")]
     #[case("while (0) int x = 1; return x;")]
+    #[case("do { int x; } while (1); return x;")]
     #[should_panic]
     fn test_undefined_variables_in_scope(#[case] test_case: String) {
         let generated = generate_code(test_case);
@@ -525,6 +549,34 @@ mod tests {
         55
     )]
     fn test_while_statements(
+        #[case] test_case: String,
+        #[case] expected: i32,
+    ) -> std::io::Result<()> {
+        let generated = generate_code(test_case);
+        expect_exit_code(generated, expected)?;
+        Ok(())
+    }
+
+    #[rstest::rstest]
+    #[case(
+        "int x = 45;\
+            int a = 0;\
+            int b = 1;\
+            int c;\
+            do {\
+               c = a + b;\
+               a = b;\
+               b = c;\
+               x = x - 1;\
+            } while (x);\
+            return c;",
+        1836311903
+    )]
+    #[case(
+        "int x = 5; int sum = 0; do { sum = sum + x * x; x = x - 1; } while (x); return sum; ",
+        55
+    )]
+    fn test_do_while_statements(
         #[case] test_case: String,
         #[case] expected: i32,
     ) -> std::io::Result<()> {

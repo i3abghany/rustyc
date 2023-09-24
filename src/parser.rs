@@ -67,8 +67,23 @@ impl Parser {
             TokenType::Identifier => self.parse_assignment(),
             TokenType::If => self.parse_if(),
             TokenType::While => self.parse_while(),
+            TokenType::Do => self.parse_do_while(),
             _ => panic!("Unexpected token: {:?}", self.current()),
         }
+    }
+
+    fn parse_do_while(&mut self) -> ASTNode {
+        let do_token = self.try_consume(TokenType::Do);
+        let body = self.parse_scope_or_single_statement();
+        let while_token = self.try_consume(TokenType::While);
+        let condition = self.parse_parenthesized_expression();
+        self.try_consume(TokenType::SemiColon);
+        ASTNode::DoWhile(
+            do_token,
+            Box::new(body),
+            while_token,
+            Box::new(ExpressionNode(condition)),
+        )
     }
 
     fn parse_while(&mut self) -> ASTNode {
@@ -228,6 +243,7 @@ impl Parser {
 mod tests {
 
     use super::*;
+    use crate::ast::ASTNode::*;
     use crate::lexer::Lexer;
 
     #[rstest::rstest]
@@ -266,8 +282,6 @@ mod tests {
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);
     }
-
-    use crate::ast::ASTNode::*;
 
     #[rstest::rstest]
     #[case("return 1 + 2;", ASTNode::Program(
@@ -541,6 +555,76 @@ mod tests {
     )]))]
     fn test_parse_while_statement(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("int x = 1; do { x = x + 1; } while (x);", ASTNode::Program(vec![
+        ASTNode::Declaration(
+            Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
+            Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ),
+        ASTNode::Assignment(
+            Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
+            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
+            )))
+        ),
+        ASTNode::DoWhile(
+            Token{value: "do".to_string(), token_type: TokenType::Do, pos: 11},
+            Box::new(ASTNode::Scope(vec![ASTNode::Assignment(
+                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 16},
+                Box::new(ASTNode::ExpressionNode(Expression::Binary(
+                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 22},
+                    Box::new(Expression::Variable(
+                        Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 20}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 24}
+                    ))
+                )))
+            )])),
+            Token{value: "while".to_string(), token_type: TokenType::While, pos: 29},
+            Box::new(ExpressionNode(Expression::Variable(
+                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 36}
+            )))
+        )
+    ]))]
+    #[rstest::rstest]
+    #[case("int x = 1; do x = x + 1; while (x);", ASTNode::Program(vec![
+        ASTNode::Declaration(
+            Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
+            Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ),
+        ASTNode::Assignment(
+            Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
+            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
+            )))
+        ),
+        ASTNode::DoWhile(
+            Token{value: "do".to_string(), token_type: TokenType::Do, pos: 11},
+            Box::new(ASTNode::Scope(vec![ASTNode::Assignment(
+                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 14},
+                Box::new(ASTNode::ExpressionNode(Expression::Binary(
+                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 20},
+                    Box::new(Expression::Variable(
+                        Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 18}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 22}
+                    ))
+                )))
+            )])),
+            Token{value: "while".to_string(), token_type: TokenType::While, pos: 25},
+            Box::new(ExpressionNode(Expression::Variable(
+                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 32}
+            )))
+        )
+    ]))]
+    fn test_do_while(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case.clone()).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);
     }
