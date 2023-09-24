@@ -3,6 +3,7 @@ use crate::ast::*;
 use crate::symbol_table;
 use crate::symbol_table::*;
 use crate::tokens::*;
+use uuid::Uuid;
 
 pub struct CodeGenerator {
     symbol_table: SymbolTable,
@@ -23,7 +24,7 @@ impl CodeGenerator {
             ASTNode::Assignment(_, _) => self.generate_assignment(root),
             ASTNode::ExpressionNode(expression) => self.generate_expression(expression),
             ASTNode::Scope(_) => self.generate_scope(root),
-            _ => panic!(""),
+            ASTNode::If(_, _, _, _) => self.generate_if_statement(root),
         }
     }
 
@@ -232,6 +233,29 @@ impl CodeGenerator {
         }
     }
 
+    fn unique_label(&mut self, prefix: &str) -> String {
+        return format!("{}_{}", prefix, Uuid::new_v4().simple());
+    }
+
+    fn generate_if_statement(&mut self, node: &ASTNode) -> String {
+        match node {
+            ASTNode::If(_, condition, body, else_body) => {
+                let mut results = String::new();
+                results.push_str(&self.generate(condition));
+                results.push_str(&format!("cmp $0, {}\n", CodeGenerator::get_reg1(8)));
+                let else_label = self.unique_label("__IF_");
+                results.push_str(&format!("je {}\n", else_label));
+                results.push_str(&self.generate(body));
+                results.push_str(&format!("{}:\n", else_label));
+                if let Some(else_body) = else_body {
+                    results.push_str(&self.generate(else_body));
+                }
+                results
+            }
+            _ => panic!("Internal error: Expected if statement, found {:?}", node),
+        }
+    }
+
     fn generate_declaration(&mut self, node: &ASTNode) -> String {
         match node {
             ASTNode::Declaration(variable_type, identifier) => {
@@ -430,5 +454,19 @@ mod tests {
     #[should_panic]
     fn test_undefined_variables_in_scope(#[case] test_case: String) {
         let generated = generate_code(test_case);
+    }
+
+    #[rstest::rstest]
+    #[case("int x = 55; if (x & 1) { return 16; } return x;", 16)]
+    #[case("int x = 55; if (x & 0) { return 16; } return x;", 55)]
+    #[case("int x = 12; if (x & 1) { return 16; } else { return 5 * 12; }", 60)]
+    #[case(
+        "if (0) { return 16; } else if (1) { return 5 * 12; } else { return 7; }",
+        60
+    )]
+    fn test_if_statements(#[case] test_case: String, #[case] expected: i32) -> std::io::Result<()> {
+        let generated = generate_code(test_case);
+        expect_exit_code(generated, expected)?;
+        Ok(())
     }
 }

@@ -15,5 +15,6 @@ pub enum ASTNode {
     Declaration(Token, Token),            // Type, Identifier
     ReturnStatement(Token, Box<ASTNode>), // ReturnKeyword, Expression
     Program(Vec<ASTNode>),
+    If(Token, Box<ASTNode>, Box<ASTNode>, Option<Box<ASTNode>>), // If, Condition, Body, Else
     Scope(Vec<ASTNode>),
 }
