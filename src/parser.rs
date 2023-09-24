@@ -65,8 +65,39 @@ impl Parser {
             TokenType::Type => self.parse_declaration(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::Identifier => self.parse_assignment(),
+            TokenType::If => self.parse_if(),
             _ => panic!("Unexpected token: {:?}", self.current()),
         }
+    }
+
+    fn parse_if(&mut self) -> ASTNode {
+        let if_token = self.try_consume(TokenType::If);
+        let condition = self.parse_parenthesized_expression();
+        let body = if self.current().token_type == TokenType::OpenCurly {
+            self.parse_scope()
+        } else {
+            ASTNode::Scope(vec![self.parse_statement()])
+        };
+
+        let mut else_body: Option<Box<ASTNode>> = None;
+
+        if self.current().token_type == TokenType::Else {
+            self.advance();
+            let body = self.parse_unit();
+
+            else_body = if let ASTNode::Scope(_) = body {
+                Some(Box::new(body))
+            } else {
+                Some(Box::new(ASTNode::Scope(vec![body])))
+            };
+        }
+
+        ASTNode::If(
+            if_token,
+            Box::new(ASTNode::ExpressionNode(condition)),
+            Box::new(body),
+            else_body,
+        )
     }
 
     fn peak(&self, offset: usize) -> &Token {
@@ -113,16 +144,18 @@ impl Parser {
         left
     }
 
+    fn parse_parenthesized_expression(&mut self) -> Expression {
+        self.try_consume(TokenType::OpenParen);
+        let expr = self.parse_expression();
+        self.try_consume(TokenType::CloseParen);
+        expr
+    }
+
     fn parse_primary_expression(&mut self) -> Expression {
         match self.current().token_type {
             TokenType::Identifier => Expression::Variable(self.consume()),
             TokenType::IntegerLiteral => Expression::IntegerLiteral(self.consume()),
-            TokenType::OpenParen => {
-                self.advance();
-                let expr = Expression::Parenthesized(Box::new(self.parse_expression()));
-                self.try_consume(TokenType::CloseParen);
-                expr
-            }
+            TokenType::OpenParen => self.parse_parenthesized_expression(),
             _ => panic!("Unexpected token: {:?}", self.current()),
         }
     }
@@ -312,11 +345,178 @@ mod tests {
     }
 
     #[rstest::rstest]
+    #[case("if (true) { return 1; }", ASTNode::Program(vec![ASTNode::If(
+        Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
+        Box::new(ExpressionNode(Expression::Variable(
+            Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
+            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
+            )))
+        )])),
+        None
+    )]))]
+    fn test_parse_if_statement(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("if (ture) { return 1; } else { return 2; }", ASTNode::Program(vec![ASTNode::If(
+        Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
+        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
+            )))
+        )])),
+        Some(Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 31},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 38}
+            )))
+        )])))
+    )]))]
+    fn test_parse_if_else(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("if (ture) { return 1; } else if (false) { return 2; }", ASTNode::Program(vec![ASTNode::If(
+        Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
+        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
+            )))
+        )])),
+        Some(Box::new(ASTNode::Scope(vec![ASTNode::If(
+            Token { value: "if".to_string(), token_type: TokenType::If, pos: 29 },
+            Box::new(ASTNode::ExpressionNode(Expression::Variable(
+                Token{value: "false".to_string(), token_type: TokenType::Identifier, pos: 33}
+            ))),
+            Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+                Token{value: "return".to_string(), token_type: TokenType::Return, pos: 42},
+                Box::new(ExpressionNode(Expression::IntegerLiteral(
+                    Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 49}
+                )))
+            )])),
+            None
+        )])))
+    )]))]
+    fn test_parse_if_else_if(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("if (ture) { return 1; } else if (false) { return 2; } else { return 3; }", ASTNode::Program(vec![ASTNode::If(
+        Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
+        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
+            )))
+        )])),
+        Some(Box::new(ASTNode::Scope(vec![ASTNode::If(
+            Token { value: "if".to_string(), token_type: TokenType::If, pos: 29 },
+            Box::new(ASTNode::ExpressionNode(Expression::Variable(
+                Token{value: "false".to_string(), token_type: TokenType::Identifier, pos: 33}
+            ))),
+            Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+                Token{value: "return".to_string(), token_type: TokenType::Return, pos: 42},
+                Box::new(ExpressionNode(Expression::IntegerLiteral(
+                    Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 49}
+                )))
+            )])),
+            Some(Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+                Token{value: "return".to_string(), token_type: TokenType::Return, pos: 61},
+                Box::new(ExpressionNode(Expression::IntegerLiteral(
+                    Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 68}
+                )))
+            )])))
+        )])))
+    )]))]
+    fn test_parse_if_with_multiple_elses(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("if (ture) return 1; else if (false) return 2; else { return 3; }", ASTNode::Program(vec![ASTNode::If(
+        Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
+        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
+        ))),
+        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 10},
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
+                Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 17}
+            )))
+        )])),
+        Some(Box::new(ASTNode::Scope(vec![ASTNode::If(
+            Token { value: "if".to_string(), token_type: TokenType::If, pos: 25 },
+            Box::new(ASTNode::ExpressionNode(Expression::Variable(
+                Token{value: "false".to_string(), token_type: TokenType::Identifier, pos: 29}
+            ))),
+            Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+                Token{value: "return".to_string(), token_type: TokenType::Return, pos: 36},
+                Box::new(ExpressionNode(Expression::IntegerLiteral(
+                    Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 43}
+                )))
+            )])),
+            Some(Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+                Token{value: "return".to_string(), token_type: TokenType::Return, pos: 53},
+                Box::new(ExpressionNode(Expression::IntegerLiteral(
+                    Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 60}
+                )))
+            )])))
+        )])))
+    )]))]
+    fn test_parse_if_with_multiple_elses_no_braces(
+        #[case] test_case: String,
+        #[case] expected: ASTNode,
+    ) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
     #[case("return 123")]
     #[case("int x")]
     #[case("int x = 123")]
     #[should_panic]
     fn test_missing_simicolon(#[case] test_case: String) {
+        let tokens = Lexer::new(test_case).lex();
+        let _result = Parser::new(tokens).parse();
+    }
+
+    #[rstest::rstest]
+    #[case("else { return 0; }")]
+    #[case("if else { return 0; }")]
+    #[case("if {1} { return 0; }")]
+    #[case("if {1} ( return 0; )")]
+    #[case("if if (1) { return 1; } ")]
+    #[case("else if (1) { return 1; } ")]
+    #[should_panic]
+    fn test_wrong_if_statements(#[case] test_case: String) {
         let tokens = Lexer::new(test_case).lex();
         let _result = Parser::new(tokens).parse();
     }

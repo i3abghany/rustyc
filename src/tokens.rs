@@ -7,6 +7,7 @@ pub enum TokenType {
     Return,
     While,
     If,
+    Else,
     Do,
     Equals,
     Plus,
@@ -46,6 +47,7 @@ pub const TYPES: phf::Map<&'static str, TokenType> = phf_map! {
 
 pub const KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "if" => TokenType::If,
+    "else" => TokenType::Else,
     "while" => TokenType::While,
     "do" => TokenType::Do,
     "return" => TokenType::Return,
