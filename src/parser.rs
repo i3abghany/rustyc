@@ -284,12 +284,12 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 1 + 2;", ASTNode::Program(
+    #[case("return 1 ^ 2;", ASTNode::Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
                 Expression::Binary(
-                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 9},
+                    Token{value: "^".to_string(), token_type: TokenType::Caret, pos: 9},
                     Box::new(Expression::IntegerLiteral(
                         Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
                     )),
@@ -345,12 +345,12 @@ mod tests {
             )
         ])
     )]
-    #[case("{ return 1 || x * 3; }", ASTNode::Program(vec![ASTNode::Scope(
+    #[case("{ return 1 && x * 3; }", ASTNode::Program(vec![ASTNode::Scope(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 2},
                 Box::new(ExpressionNode(
                     Expression::Binary(
-                        Token{value: "||".to_string(), token_type: TokenType::BarBar, pos: 11},
+                        Token{value: "&&".to_string(), token_type: TokenType::AndAnd, pos: 11},
                         Box::new(Expression::IntegerLiteral(
                             Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 9}
                         )),
