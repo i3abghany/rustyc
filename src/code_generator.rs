@@ -94,10 +94,32 @@ impl CodeGenerator {
             Expression::IntegerLiteral(_) => self.generate_integral_literal(expression),
             Expression::Variable(_) => self.generate_variable_expression(expression),
             Expression::Binary(_, _, _) => self.generate_binary_expression(expression),
+            Expression::Unary(_, _) => self.generate_unary_expression(expression),
             Expression::Parenthesized(internal_expression) => {
                 self.generate_expression(internal_expression)
             }
         }
+    }
+
+    fn generate_unary_expression(&mut self, expression: &Expression) -> String {
+        let mut result = String::new();
+        match expression {
+            Expression::Unary(operator, expression) => {
+                result.push_str(self.generate_expression(&expression).as_str());
+                match operator.token_type {
+                    TokenType::Plus => {}
+                    TokenType::Minus => {
+                        result.push_str(&format!("neg {}\n", CodeGenerator::get_reg1(8)));
+                    }
+                    _ => panic!("Unsupported unary operator: {:#?}", operator),
+                }
+            }
+            _ => panic!(
+                "Internal Error: Expected a unary expression, found: {:#?}",
+                expression
+            ),
+        }
+        result
     }
 
     fn generate_binary_expression(&mut self, expression: &Expression) -> String {
@@ -464,6 +486,9 @@ mod tests {
     #[case("return 5 + 3 * 2 + (2 * 19 * 4) / 2 + 9 * 12 / 3 * 3;", 195)]
     #[case("return (1 | 2 | 4 | 8 | 16 | 32) & 85;", 21)]
     #[case("int x = 12; int y = 423; return x || y;", 1)]
+    #[case("int x = -7; int y = 15; return x + y;", 8)]
+    #[case("int x = -----++++----+------12; return x * x;", 144)]
+    #[case("int x = 1; return -(+(-(+x)));", 1)]
     #[case("int false = 0; int true = 123; return true || false;", 1)]
     #[case(
         "int x = 312; int y = 99; int z; z = 2 * x / 3 + y * y; return z - x;",

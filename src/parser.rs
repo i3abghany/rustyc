@@ -9,7 +9,7 @@ pub struct Parser {
     pos: usize,
 }
 
-fn operator_precedence(token_type: TokenType) -> u8 {
+fn binary_operator_precedence(token_type: TokenType) -> u8 {
     match token_type {
         TokenType::BarBar => 1,
         TokenType::AndAnd => 2,
@@ -20,6 +20,10 @@ fn operator_precedence(token_type: TokenType) -> u8 {
         TokenType::Star | TokenType::Slash => 7,
         _ => 0,
     }
+}
+
+fn is_unary_operator(token_type: &TokenType) -> bool {
+    *token_type == TokenType::Plus || *token_type == TokenType::Minus
 }
 
 impl Parser {
@@ -158,10 +162,13 @@ impl Parser {
     }
 
     fn parse_expression_internal(&mut self, parent_precedence: u8) -> Expression {
+        if is_unary_operator(&self.current().token_type) {
+            return Expression::Unary(self.consume().clone(), Box::new(self.parse_expression()));
+        }
         let mut left = self.parse_primary_expression();
         loop {
             let operator_token = self.current().clone();
-            let operator_precedence = operator_precedence(operator_token.token_type.clone());
+            let operator_precedence = binary_operator_precedence(operator_token.token_type.clone());
             if parent_precedence >= operator_precedence {
                 //  Because parent_precedence >= 0, this
                 // condition is satisfied too if the current
@@ -389,6 +396,36 @@ mod tests {
         None
     )]))]
     fn test_parse_if_statement(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[
+        case("return -123;",
+            ASTNode::Program(
+                vec![
+                    ReturnStatement(
+                        Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+                        Box::new(
+                            ExpressionNode(
+                                Expression::Unary(
+                                    Token{value: "-".to_string(), token_type: TokenType::Minus, pos: 7},
+                                    Box::new(
+                                        Expression::IntegerLiteral(
+                                            Token{value: "123".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                ]
+            )
+        )
+    ]
+    fn test_parse_unary_expression(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);

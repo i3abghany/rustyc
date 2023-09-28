@@ -5,6 +5,7 @@ pub enum Expression {
     IntegerLiteral(Token),
     Variable(Token),
     Binary(Token, Box<Expression>, Box<Expression>),
+    Unary(Token, Box<Expression>),
     Parenthesized(Box<Expression>),
 }
 
