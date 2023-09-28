@@ -1,4 +1,4 @@
-use phf::phf_map;
+use phf::{phf_map, phf_set};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
@@ -41,8 +41,8 @@ pub static EOF_POS: usize = usize::MAX;
 // TODO update these vectors to represent the specification.
 pub static STR_ALLOWED_SYMBOLS: [char; 2] = ['_', '$'];
 
-pub const TYPES: phf::Map<&'static str, TokenType> = phf_map! {
-    "int" => TokenType::Type,
+pub const TYPES: phf::Set<&'static str> = phf_set! {
+    "int",
 };
 
 pub const KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
