@@ -16,8 +16,13 @@ fn binary_operator_precedence(token_type: TokenType) -> u8 {
         TokenType::Bar => 3,
         TokenType::Caret => 4,
         TokenType::And => 5,
-        TokenType::Plus | TokenType::Minus => 6,
-        TokenType::Star | TokenType::Slash => 7,
+        TokenType::EqualsEquals | TokenType::NotEquals => 6,
+        TokenType::GreaterThan
+        | TokenType::GreaterThanEquals
+        | TokenType::LessThan
+        | TokenType::LessThanEquals => 7,
+        TokenType::Plus | TokenType::Minus => 8,
+        TokenType::Star | TokenType::Slash => 9,
         _ => 0,
     }
 }
@@ -248,10 +253,10 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::ast::ASTNode::*;
     use crate::lexer::Lexer;
+    use rstest::rstest;
 
     #[rstest::rstest]
     #[case("int x = 55;", ASTNode::Program(
@@ -376,6 +381,93 @@ mod tests {
         ])]
     ))]
     fn test_parse_binary_expression(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("return 1 != 2;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::Binary(
+                    Token{value: "!=".to_string(), token_type: TokenType::NotEquals, pos: 9},
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 12}
+                    ))
+                )
+            ))
+        )])
+    )]
+    #[case("return 1 >= 2;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::Binary(
+                    Token{value: ">=".to_string(), token_type: TokenType::GreaterThanEquals, pos: 9},
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 12}
+                    ))
+                )
+            ))
+        )])
+    )]
+    #[case("return 1 <= 2;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::Binary(
+                    Token{value: "<=".to_string(), token_type: TokenType::LessThanEquals, pos: 9},
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 12}
+                    ))
+                )
+            ))
+        )])
+    )]
+    #[case("return 1 < 2;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::Binary(
+                    Token{value: "<".to_string(), token_type: TokenType::LessThan, pos: 9},
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
+                    ))
+                )
+            ))
+        )])
+    )]
+    #[case("return 1 > 2;", ASTNode::Program(
+        vec![ReturnStatement(
+            Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+            Box::new(ExpressionNode(
+                Expression::Binary(
+                    Token{value: ">".to_string(), token_type: TokenType::GreaterThan, pos: 9},
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
+                    ))
+                )
+            ))
+        )])
+    )]
+    fn test_comparison_expressions(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);

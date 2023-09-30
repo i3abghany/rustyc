@@ -172,6 +172,36 @@ impl CodeGenerator {
                     TokenType::Caret => {
                         result.push_str(&format!("xor {}, {}\n", reg2, reg1));
                     }
+                    TokenType::EqualsEquals => {
+                        result.push_str(&format!("cmp {}, {}\n", reg2, reg1));
+                        result.push_str(&format!("sete %bl\n"));
+                        result.push_str(&format!("movzbl %bl, {}\n", reg1));
+                    }
+                    TokenType::NotEquals => {
+                        result.push_str(&format!("cmp {}, {}\n", reg2, reg1));
+                        result.push_str(&format!("setne %bl\n"));
+                        result.push_str(&format!("movzbl %bl, %ebx\n"));
+                    }
+                    TokenType::GreaterThan => {
+                        result.push_str(&format!("cmp {}, {}\n", reg2, reg1));
+                        result.push_str(&format!("setg %bl\n"));
+                        result.push_str(&format!("movzbl %bl, %ebx\n"));
+                    }
+                    TokenType::GreaterThanEquals => {
+                        result.push_str(&format!("cmp {}, {}\n", reg2, reg1));
+                        result.push_str(&format!("setge %bl\n"));
+                        result.push_str(&format!("movzbl %bl, %ebx\n"));
+                    }
+                    TokenType::LessThan => {
+                        result.push_str(&format!("cmp {}, {}\n", reg2, reg1));
+                        result.push_str(&format!("setl %bl\n"));
+                        result.push_str(&format!("movzbl %bl, %ebx\n"));
+                    }
+                    TokenType::LessThanEquals => {
+                        result.push_str(&format!("cmp {}, {}\n", reg2, reg1));
+                        result.push_str(&format!("setle %bl\n"));
+                        result.push_str(&format!("movzbl %bl, %ebx\n"));
+                    }
                     _ => panic!("Unsupported operator: {:?}", token),
                 }
             }
@@ -484,6 +514,13 @@ mod tests {
 
     #[rstest::rstest]
     #[case("return 5 + 3 * 2 + (2 * 19 * 4) / 2 + 9 * 12 / 3 * 3;", 195)]
+    #[case("int x = 1; int y = 2; return x > y;", 0)]
+    #[case("int x = 1; int y = 2; return x < y;", 1)]
+    #[case("int x = 1; int y = 2; return x >= y;", 0)]
+    #[case("int x = 1; int y = 2; return x <= y;", 1)]
+    #[case("int x = 1; int y = 2; return x != y;", 1)]
+    #[case("int x = 1; int y = 2; int z = 1; return x + z == y;", 1)]
+    #[case("int x = 1; int y = x; return x == y;", 1)]
     #[case("return (1 | 2 | 4 | 8 | 16 | 32) & 85;", 21)]
     #[case("int x = 12; int y = 423; return x || y;", 1)]
     #[case("int x = -7; int y = 15; return x + y;", 8)]
@@ -556,22 +593,32 @@ mod tests {
     // Calculating the maximum Fibonacci number that fits in a 32-bit integer.
     #[rstest::rstest]
     #[case(
-        "int x = 45;\
-            int a = 0;\
-            int b = 1;\
-            int c;\
-            while (x) {\
-               c = a + b;\
-               a = b;\
-               b = c;\
-               x = x - 1;\
-            }\
-            return c;",
+        "int x = 44;
+    int a = 0;
+    int b = 1;
+    int c;
+    while (x >= 0) {
+       c = a + b;
+       a = b;
+       b = c;
+       x = x - 1;
+    }
+    return c;",
         1836311903
     )]
     #[case(
-        "int x = 5; int sum = 0; while (x) { sum = sum + x * x; x = x - 1; } return sum; ",
+        "int x = 5; int sum = 0; while (x != 0) { sum = sum + x * x; x = x - 1; } return sum; ",
         55
+    )]
+    #[case(
+        "int n = 10;
+    int result = 1;
+    while (n > 1) {
+        result = result * n;
+        n = n - 1;
+    }
+    return result;",
+        3628800
     )]
     fn test_while_statements(
         #[case] test_case: String,
@@ -596,6 +643,28 @@ mod tests {
             } while (x);\
             return c;",
         1836311903
+    )]
+    #[case(
+        "int x = 6;
+    int y = 3;
+    int temp1 = x * y + 3;
+    int temp2 = x - y;
+    int result = 1;
+    int counter = 0;
+
+    while (temp1 > temp2) {
+        temp2 = temp2 + x;
+        temp1 = temp1 - y;
+        counter = counter + 1;
+    }
+
+    while (counter > 0) {
+        result = result * temp1 + temp2;
+        counter = counter - 1;
+    }
+
+    return result;",
+        465
     )]
     #[case(
         "int x = 5; int sum = 0; do { sum = sum + x * x; x = x - 1; } while (x); return sum; ",
