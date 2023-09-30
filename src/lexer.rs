@@ -24,23 +24,26 @@ impl Lexer {
             } else if let Some(mut token_type) = self.get_single_char_token(c) {
                 let pos = self.pos;
                 let mut value = String::from(c);
+                macro_rules! match_double_char_token {
+                    ($next:expr, $token_type:expr) => {
+                        if self.peek(1) == $next {
+                            value = format!("{}{}", c, $next);
+                            token_type = $token_type;
+                            self.advance();
+                        }
+                    };
+                }
+
                 match c {
-                    '|' => {
-                        if self.peek(1) == '|' {
-                            value = String::from("||");
-                            token_type = TokenType::BarBar;
-                            self.advance();
-                        }
-                    }
-                    '&' => {
-                        if self.peek(1) == '&' {
-                            value = String::from("&&");
-                            token_type = TokenType::AndAnd;
-                            self.advance();
-                        }
-                    }
+                    '|' => match_double_char_token!('|', TokenType::BarBar),
+                    '&' => match_double_char_token!('&', TokenType::AndAnd),
+                    '=' => match_double_char_token!('=', TokenType::EqualsEquals),
+                    '!' => match_double_char_token!('=', TokenType::NotEquals),
+                    '>' => match_double_char_token!('=', TokenType::GreaterThanEquals),
+                    '<' => match_double_char_token!('=', TokenType::LessThanEquals),
                     _ => {}
                 }
+
                 result.push(Token {
                     value,
                     token_type,
