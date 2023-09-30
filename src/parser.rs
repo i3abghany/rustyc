@@ -259,15 +259,15 @@ mod tests {
     use rstest::rstest;
 
     #[rstest::rstest]
-    #[case("int x = 55;", ASTNode::Program(
+    #[case("int x = 55;", Program(
         vec![
-            ASTNode::Declaration(
+            Declaration(
                 Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
             ),
-            ASTNode::Assignment(
+            Assignment(
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-                Box::new(ASTNode::ExpressionNode(
+                Box::new(ExpressionNode(
                     Expression::IntegerLiteral(
                     Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}))
                 )
@@ -281,10 +281,10 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 123;", ASTNode::Program(
-        vec![ASTNode::ReturnStatement(
+    #[case("return 123;", Program(
+        vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
-            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "123".to_string(), token_type: TokenType::IntegerLiteral, pos: 7}
             ))
         ))])
@@ -296,7 +296,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 1 ^ 2;", ASTNode::Program(
+    #[case("return 1 ^ 2;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -312,7 +312,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 + 2 * 3;", ASTNode::Program(
+    #[case("return 1 + 2 * 3;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -334,7 +334,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 || x * 3;", ASTNode::Program(
+    #[case("return 1 || x * 3;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
                 Box::new(ExpressionNode(
@@ -357,7 +357,7 @@ mod tests {
             )
         ])
     )]
-    #[case("{ return 1 && x * 3; }", ASTNode::Program(vec![ASTNode::Scope(
+    #[case("{ return 1 && x * 3; }", Program(vec![Scope(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 2},
                 Box::new(ExpressionNode(
@@ -387,7 +387,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 1 != 2;", ASTNode::Program(
+    #[case("return 1 != 2;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -403,7 +403,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 >= 2;", ASTNode::Program(
+    #[case("return 1 >= 2;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -419,7 +419,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 <= 2;", ASTNode::Program(
+    #[case("return 1 <= 2;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -435,7 +435,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 < 2;", ASTNode::Program(
+    #[case("return 1 < 2;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -451,7 +451,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 > 2;", ASTNode::Program(
+    #[case("return 1 > 2;", Program(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -474,14 +474,14 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (true) { return 1; }", ASTNode::Program(vec![ASTNode::If(
+    #[case("if (true) { return 1; }", Program(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 4}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
-            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
             )))
         )])),
@@ -496,7 +496,7 @@ mod tests {
     #[rstest::rstest]
     #[
         case("return -123;",
-            ASTNode::Program(
+            Program(
                 vec![
                     ReturnStatement(
                         Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
@@ -524,18 +524,18 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) { return 1; } else { return 2; }", ASTNode::Program(vec![ASTNode::If(
+    #[case("if (ture) { return 1; } else { return 2; }", Program(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
-        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+        Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
             )))
         )])),
-        Some(Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Some(Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 31},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 38}
@@ -549,23 +549,23 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) { return 1; } else if (false) { return 2; }", ASTNode::Program(vec![ASTNode::If(
+    #[case("if (ture) { return 1; } else if (false) { return 2; }", Program(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
-        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+        Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
             )))
         )])),
-        Some(Box::new(ASTNode::Scope(vec![ASTNode::If(
+        Some(Box::new(Scope(vec![If(
             Token { value: "if".to_string(), token_type: TokenType::If, pos: 29 },
-            Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Box::new(ExpressionNode(Expression::Variable(
                 Token{value: "false".to_string(), token_type: TokenType::Identifier, pos: 33}
             ))),
-            Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Box::new(Scope(vec![ReturnStatement(
                 Token{value: "return".to_string(), token_type: TokenType::Return, pos: 42},
                 Box::new(ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 49}
@@ -581,29 +581,29 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) { return 1; } else if (false) { return 2; } else { return 3; }", ASTNode::Program(vec![ASTNode::If(
+    #[case("if (ture) { return 1; } else if (false) { return 2; } else { return 3; }", Program(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
-        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+        Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 12},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 19}
             )))
         )])),
-        Some(Box::new(ASTNode::Scope(vec![ASTNode::If(
+        Some(Box::new(Scope(vec![If(
             Token { value: "if".to_string(), token_type: TokenType::If, pos: 29 },
-            Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Box::new(ExpressionNode(Expression::Variable(
                 Token{value: "false".to_string(), token_type: TokenType::Identifier, pos: 33}
             ))),
-            Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Box::new(Scope(vec![ReturnStatement(
                 Token{value: "return".to_string(), token_type: TokenType::Return, pos: 42},
                 Box::new(ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 49}
                 )))
             )])),
-            Some(Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Some(Box::new(Scope(vec![ReturnStatement(
                 Token{value: "return".to_string(), token_type: TokenType::Return, pos: 61},
                 Box::new(ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 68}
@@ -618,29 +618,29 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) return 1; else if (false) return 2; else { return 3; }", ASTNode::Program(vec![ASTNode::If(
+    #[case("if (ture) return 1; else if (false) return 2; else { return 3; }", Program(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
-        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+        Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 10},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 17}
             )))
         )])),
-        Some(Box::new(ASTNode::Scope(vec![ASTNode::If(
+        Some(Box::new(Scope(vec![If(
             Token { value: "if".to_string(), token_type: TokenType::If, pos: 25 },
-            Box::new(ASTNode::ExpressionNode(Expression::Variable(
+            Box::new(ExpressionNode(Expression::Variable(
                 Token{value: "false".to_string(), token_type: TokenType::Identifier, pos: 29}
             ))),
-            Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Box::new(Scope(vec![ReturnStatement(
                 Token{value: "return".to_string(), token_type: TokenType::Return, pos: 36},
                 Box::new(ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 43}
                 )))
             )])),
-            Some(Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+            Some(Box::new(Scope(vec![ReturnStatement(
                 Token{value: "return".to_string(), token_type: TokenType::Return, pos: 53},
                 Box::new(ExpressionNode(Expression::IntegerLiteral(
                     Token{value: "3".to_string(), token_type: TokenType::IntegerLiteral, pos: 60}
@@ -658,24 +658,24 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("while (true) { return 1; }", ASTNode::Program(vec![ASTNode::While(
+    #[case("while (true) { return 1; }", Program(vec![While(
         Token { value: "while".to_string(), token_type: TokenType::While, pos: 0 },
-        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+        Box::new(ExpressionNode(Expression::Variable(
             Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 7}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 15},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 22}
             )))
         )]))
     )]))]
-    #[case("while (true) return 1;", ASTNode::Program(vec![ASTNode::While(
+    #[case("while (true) return 1;", Program(vec![While(
         Token { value: "while".to_string(), token_type: TokenType::While, pos: 0 },
-        Box::new(ASTNode::ExpressionNode(Expression::Variable(
+        Box::new(ExpressionNode(Expression::Variable(
             Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 7}
         ))),
-        Box::new(ASTNode::Scope(vec![ASTNode::ReturnStatement(
+        Box::new(Scope(vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 13},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 20}
@@ -689,22 +689,22 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("int x = 1; do { x = x + 1; } while (x);", ASTNode::Program(vec![
-        ASTNode::Declaration(
+    #[case("int x = 1; do { x = x + 1; } while (x);", Program(vec![
+        Declaration(
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
         ),
-        ASTNode::Assignment(
+        Assignment(
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
             )))
         ),
-        ASTNode::DoWhile(
+        DoWhile(
             Token{value: "do".to_string(), token_type: TokenType::Do, pos: 11},
-            Box::new(ASTNode::Scope(vec![ASTNode::Assignment(
+            Box::new(Scope(vec![Assignment(
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 16},
-                Box::new(ASTNode::ExpressionNode(Expression::Binary(
+                Box::new(ExpressionNode(Expression::Binary(
                     Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 22},
                     Box::new(Expression::Variable(
                         Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 20}
@@ -721,22 +721,22 @@ mod tests {
         )
     ]))]
     #[rstest::rstest]
-    #[case("int x = 1; do x = x + 1; while (x);", ASTNode::Program(vec![
-        ASTNode::Declaration(
+    #[case("int x = 1; do x = x + 1; while (x);", Program(vec![
+        Declaration(
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
         ),
-        ASTNode::Assignment(
+        Assignment(
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-            Box::new(ASTNode::ExpressionNode(Expression::IntegerLiteral(
+            Box::new(ExpressionNode(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
             )))
         ),
-        ASTNode::DoWhile(
+        DoWhile(
             Token{value: "do".to_string(), token_type: TokenType::Do, pos: 11},
-            Box::new(ASTNode::Scope(vec![ASTNode::Assignment(
+            Box::new(Scope(vec![Assignment(
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 14},
-                Box::new(ASTNode::ExpressionNode(Expression::Binary(
+                Box::new(ExpressionNode(Expression::Binary(
                     Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 20},
                     Box::new(Expression::Variable(
                         Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 18}
