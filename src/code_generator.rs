@@ -132,8 +132,8 @@ impl CodeGenerator {
                 result.push_str(format!("pop {}\n", CodeGenerator::get_reg2(8)).as_str());
 
                 // TODO: Support floating point operations
-                let reg1 = CodeGenerator::get_reg1(8);
-                let reg2 = CodeGenerator::get_reg2(8);
+                let reg1 = CodeGenerator::get_reg1(4);
+                let reg2 = CodeGenerator::get_reg2(4);
                 match token.token_type {
                     TokenType::Plus => {
                         result.push_str(&format!("add {}, {}\n", reg2, reg1));
@@ -147,10 +147,10 @@ impl CodeGenerator {
                     TokenType::Slash => {
                         result.push_str(&format!("push %rax\n"));
                         result.push_str(&format!("push %rdx\n"));
-                        result.push_str(&format!("mov {}, %rax\n", reg1));
-                        result.push_str(&format!("mov $0, %rdx\n"));
+                        result.push_str(&format!("mov {}, %eax\n", reg1));
+                        result.push_str(&format!("mov $0, %edx\n"));
                         result.push_str(&format!("idiv {}\n", reg2));
-                        result.push_str(&format!("mov %rax, {}\n", reg1));
+                        result.push_str(&format!("mov %eax, {}\n", reg1));
                         result.push_str(&format!("pop %rdx\n"));
                         result.push_str(&format!("pop %rax\n"));
                     }
