@@ -92,7 +92,7 @@ impl Parser {
     fn parse_expression_statement(&mut self) -> ASTNode {
         let res = self.parse_expression();
         self.try_consume(TokenType::SemiColon);
-        ASTNode::ExpressionStatement(Box::new(res))
+        ASTNode::ExpressionStatement(res)
     }
 
     fn is_assignment(&self) -> bool {
@@ -116,7 +116,7 @@ impl Parser {
 
     fn parse_empty_statement(&mut self) -> ASTNode {
         self.try_consume(TokenType::SemiColon);
-        ASTNode::ExpressionStatement(Box::new(Expression::Empty))
+        ASTNode::ExpressionStatement(Expression::Empty)
     }
 
     fn parse_do_while(&mut self) -> ASTNode {
@@ -246,7 +246,10 @@ impl Parser {
         self.try_consume(TokenType::Equals);
         let expression = self.parse_expression();
         self.try_consume(TokenType::SemiColon);
-        ASTNode::Assignment(identifier_token, Box::new(ExpressionNode(expression)))
+        ASTNode::ExpressionStatement(Expression::Assignment(
+            identifier_token,
+            Box::new(expression),
+        ))
     }
 
     fn parse_int_literal(&mut self) -> ASTNode {
@@ -303,10 +306,9 @@ mod tests {
                 Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
             ),
-            Assignment(
+            ExpressionStatement(Expression::Assignment(
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-                Box::new(ExpressionNode(
-                    Expression::IntegerLiteral(
+                Box::new(Expression::IntegerLiteral(
                     Token{value: "55".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}))
                 )
             )
@@ -732,17 +734,17 @@ mod tests {
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
         ),
-        Assignment(
+        ExpressionStatement(Expression::Assignment(
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-            Box::new(ExpressionNode(Expression::IntegerLiteral(
+            Box::new(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
             )))
         ),
         DoWhile(
             Token{value: "do".to_string(), token_type: TokenType::Do, pos: 11},
-            Box::new(Scope(vec![Assignment(
-                Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 16},
-                Box::new(ExpressionNode(Expression::Binary(
+            Box::new(Scope(vec![ExpressionStatement(Expression::Assignment(
+            Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 16},
+                Box::new(Expression::Binary(
                     Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 22},
                     Box::new(Expression::Variable(
                         Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 20}
@@ -764,17 +766,17 @@ mod tests {
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4}
         ),
-        Assignment(
+        ExpressionStatement(Expression::Assignment(
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
-            Box::new(ExpressionNode(Expression::IntegerLiteral(
+            Box::new(Expression::IntegerLiteral(
                 Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
             )))
         ),
         DoWhile(
             Token{value: "do".to_string(), token_type: TokenType::Do, pos: 11},
-            Box::new(Scope(vec![Assignment(
+            Box::new(Scope(vec![ExpressionStatement(Expression::Assignment(
                 Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 14},
-                Box::new(ExpressionNode(Expression::Binary(
+                Box::new(Expression::Binary(
                     Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 20},
                     Box::new(Expression::Variable(
                         Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 18}
