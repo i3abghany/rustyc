@@ -18,15 +18,16 @@ impl CodeGenerator {
 
     pub fn generate(&mut self, root: &ASTNode) -> String {
         match root {
-            ASTNode::Program(_) => self.generate_program(root),
-            ASTNode::ReturnStatement(_, _) => self.generate_return_statement(root),
-            ASTNode::Declaration(_, _) => self.generate_declaration(root),
-            ASTNode::Assignment(_, _) => self.generate_assignment(root),
-            ASTNode::ExpressionNode(expression) => self.generate_expression(expression),
-            ASTNode::Scope(_) => self.generate_scope(root),
-            ASTNode::If(_, _, _, _) => self.generate_if_statement(root),
-            ASTNode::While(..) => self.generate_while(root),
-            ASTNode::DoWhile(..) => self.generate_do_while(root),
+            Program(_) => self.generate_program(root),
+            ReturnStatement(_, _) => self.generate_return_statement(root),
+            Declaration(_, _) => self.generate_declaration(root),
+            Assignment(_, _) => self.generate_assignment(root),
+            ExpressionNode(expression) => self.generate_expression(expression),
+            Scope(_) => self.generate_scope(root),
+            If(_, _, _, _) => self.generate_if_statement(root),
+            While(..) => self.generate_while(root),
+            DoWhile(..) => self.generate_do_while(root),
+            ExpressionStatement(expression) => self.generate_expression(expression),
         }
     }
 
@@ -91,6 +92,7 @@ impl CodeGenerator {
 
     fn generate_expression(&mut self, expression: &Expression) -> String {
         match expression {
+            Expression::Empty => "".to_string(),
             Expression::IntegerLiteral(_) => self.generate_integral_literal(expression),
             Expression::Variable(_) => self.generate_variable_expression(expression),
             Expression::Binary(_, _, _) => self.generate_binary_expression(expression),
