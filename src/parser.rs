@@ -1,8 +1,6 @@
 use crate::ast::ASTNode::ExpressionNode;
 use crate::ast::*;
 use crate::tokens::*;
-use phf::phf_map;
-use std::thread::current;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -73,12 +71,52 @@ impl Parser {
         match self.current().token_type {
             TokenType::Type => self.parse_declaration(),
             TokenType::Return => self.parse_return_statement(),
-            TokenType::Identifier => self.parse_assignment(),
+            TokenType::Identifier => self.handle_identifier(),
             TokenType::If => self.parse_if(),
             TokenType::While => self.parse_while(),
             TokenType::Do => self.parse_do_while(),
-            _ => panic!("Unexpected token: {:?}", self.current()),
+            // TokenType::For => self.parse_for(),
+            TokenType::SemiColon => self.parse_empty_statement(), // TODO: Remove this case
+            _ => self.parse_expression_statement(),
         }
+    }
+
+    fn handle_identifier(&mut self) -> ASTNode {
+        if self.is_assignment() {
+            self.parse_assignment()
+        } else {
+            self.parse_expression_statement()
+        }
+    }
+
+    fn parse_expression_statement(&mut self) -> ASTNode {
+        let res = self.parse_expression();
+        self.try_consume(TokenType::SemiColon);
+        ASTNode::ExpressionStatement(Box::new(res))
+    }
+
+    fn is_assignment(&self) -> bool {
+        if self.current().token_type != TokenType::Identifier {
+            return false;
+        }
+
+        let mut i = 1;
+        loop {
+            let next = self.peak(i);
+            if next.token_type == TokenType::Equals {
+                return true;
+            }
+            if next.token_type == TokenType::SemiColon || next.token_type == TokenType::Eof {
+                break;
+            }
+            i += 1;
+        }
+        false
+    }
+
+    fn parse_empty_statement(&mut self) -> ASTNode {
+        self.try_consume(TokenType::SemiColon);
+        ASTNode::ExpressionStatement(Box::new(Expression::Empty))
     }
 
     fn parse_do_while(&mut self) -> ASTNode {
