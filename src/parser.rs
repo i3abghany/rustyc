@@ -1,4 +1,4 @@
-use crate::ast::ASTNode::ExpressionNode;
+use crate::ast::ASTNode::*;
 use crate::ast::*;
 use crate::tokens::*;
 
@@ -71,28 +71,28 @@ impl Parser {
         match self.current().token_type {
             TokenType::Type => self.parse_declaration(),
             TokenType::Return => self.parse_return_statement(),
-            TokenType::Identifier => self.handle_identifier(),
             TokenType::If => self.parse_if(),
             TokenType::While => self.parse_while(),
             TokenType::Do => self.parse_do_while(),
-            // TokenType::For => self.parse_for(),
-            TokenType::SemiColon => self.parse_empty_statement(), // TODO: Remove this case
-            _ => self.parse_expression_statement(),
+            TokenType::For => self.parse_for(),
+            _ => self.parse_assignment_or_expression_statement(),
         }
     }
 
-    fn handle_identifier(&mut self) -> ASTNode {
-        if self.is_assignment() {
-            self.parse_assignment()
-        } else {
-            self.parse_expression_statement()
-        }
-    }
-
-    fn parse_expression_statement(&mut self) -> ASTNode {
-        let res = self.parse_expression();
+    fn parse_assignment_or_expression_statement(&mut self) -> ASTNode {
+        let res = self.parse_assignment_or_expression_statement_no_semicolon();
         self.try_consume(TokenType::SemiColon);
-        ASTNode::ExpressionStatement(res)
+        res
+    }
+
+    fn parse_assignment_or_expression_statement_no_semicolon(&mut self) -> ASTNode {
+        if self.current().token_type == TokenType::SemiColon {
+            ExpressionStatement(Expression::Empty)
+        } else if self.is_assignment() {
+            self.parse_assignment_no_semicolon()
+        } else {
+            ExpressionStatement(self.parse_expression())
+        }
     }
 
     fn is_assignment(&self) -> bool {
@@ -112,11 +112,6 @@ impl Parser {
             i += 1;
         }
         false
-    }
-
-    fn parse_empty_statement(&mut self) -> ASTNode {
-        self.try_consume(TokenType::SemiColon);
-        ASTNode::ExpressionStatement(Expression::Empty)
     }
 
     fn parse_do_while(&mut self) -> ASTNode {
@@ -140,6 +135,59 @@ impl Parser {
         ASTNode::While(
             while_token,
             Box::new(ExpressionNode(condition)),
+            Box::new(body),
+        )
+    }
+
+    fn parse_for(&mut self) -> ASTNode {
+        let for_token = self.try_consume(TokenType::For);
+        self.try_consume(TokenType::OpenParen);
+
+        let mut declaration = ExpressionStatement(Expression::Empty);
+        let mut assignment = ExpressionStatement(Expression::Empty);
+
+        let mut temp = self.parse_statement();
+        if let ExpressionStatement(Expression::Empty) = temp {
+            temp = self.parse_statement();
+        } else {
+            let mut found_declaration_or_assignment = false;
+
+            if let Declaration(..) = temp {
+                declaration = temp;
+                temp = self.parse_assignment_or_expression_statement();
+                found_declaration_or_assignment = true;
+            }
+
+            if let ExpressionStatement(Expression::Assignment(..)) = temp {
+                assignment = temp;
+                temp = self.parse_assignment_or_expression_statement();
+                found_declaration_or_assignment = true;
+            }
+
+            if !found_declaration_or_assignment {
+                // No empty statement, no declaration, and no assignment
+                panic!("Expected declaration or assignment, found: {:#?}", temp);
+            }
+        }
+
+        let condition = temp;
+        let mut update = ExpressionStatement(Expression::Empty);
+        if self.current().token_type != TokenType::CloseParen {
+            update = self.parse_assignment_or_expression_statement_no_semicolon();
+        }
+
+        self.try_consume(TokenType::CloseParen);
+
+        let body = self.parse_scope_or_single_statement();
+
+        ASTNode::For(
+            for_token,
+            [
+                Box::new(declaration),
+                Box::new(assignment),
+                Box::new(condition),
+                Box::new(update),
+            ],
             Box::new(body),
         )
     }
@@ -241,15 +289,19 @@ impl Parser {
         }
     }
 
-    fn parse_assignment(&mut self) -> ASTNode {
+    fn parse_assignment_no_semicolon(&mut self) -> ASTNode {
         let identifier_token = self.try_consume(TokenType::Identifier);
         self.try_consume(TokenType::Equals);
         let expression = self.parse_expression();
-        self.try_consume(TokenType::SemiColon);
         ASTNode::ExpressionStatement(Expression::Assignment(
             identifier_token,
             Box::new(expression),
         ))
+    }
+    fn parse_assignment(&mut self) -> ASTNode {
+        let assignment_expression = self.parse_assignment_no_semicolon();
+        self.try_consume(TokenType::SemiColon);
+        assignment_expression
     }
 
     fn parse_int_literal(&mut self) -> ASTNode {
@@ -793,6 +845,157 @@ mod tests {
         )
     ]))]
     fn test_do_while(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case.clone()).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("for (;;);", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+        ],
+        Box::new(Scope(vec![ExpressionStatement(Expression::Empty)]))
+    )]))]
+    #[case("for (int i;;) { ;; }", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(Declaration(
+                Token{value: "int".to_string(), token_type: TokenType::Type, pos: 5},
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 9}
+            )),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+        ],
+        Box::new(Scope(vec![ExpressionStatement(Expression::Empty), ExpressionStatement(Expression::Empty)]))
+    )]))]
+    #[case("for (int i = 1;;) {}", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(Declaration(
+                Token{value: "int".to_string(), token_type: TokenType::Type, pos: 5},
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 9}
+            )),
+            Box::new(ExpressionStatement(Expression::Assignment(
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 9},
+                Box::new(Expression::IntegerLiteral(
+                    Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 13}
+                ))
+            ))),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+        ],
+        Box::new(Scope(vec![]))
+    )]))]
+    #[case("for (; i < 10;) {}", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Binary(
+                Token{value: "<".to_string(), token_type: TokenType::LessThan, pos: 9},
+                Box::new(Expression::Variable(
+                    Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 7}
+                )),
+                Box::new(Expression::IntegerLiteral(
+                    Token{value: "10".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
+                ))
+            ))),
+            Box::new(ExpressionStatement(Expression::Empty)),
+        ],
+        Box::new(Scope(vec![]))
+    )]))]
+    #[case("for (; i = 1;) {}", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Assignment(
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 7},
+                Box::new(Expression::IntegerLiteral(
+                    Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 11}
+                ))
+            ))),
+            Box::new(ExpressionStatement(Expression::Empty)),
+        ],
+        Box::new(Scope(vec![]))
+    )]))]
+    #[case("for (;; i) {}", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Variable(
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 8},
+            ))),
+        ],
+        Box::new(Scope(vec![]))
+    )]))]
+    #[case("for (;; i = i + 1) {}", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Empty)),
+            Box::new(ExpressionStatement(Expression::Assignment(
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 8},
+                Box::new(Expression::Binary(
+                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 14},
+                    Box::new(Expression::Variable(
+                        Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 12}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 16}
+                    ))
+                ))
+            ))),
+        ],
+        Box::new(Scope(vec![]))
+    )]))]
+    #[case("for (int i = 1; i < 10; i = i + 1) {}", Program(vec![For(
+        Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
+        [
+            Box::new(Declaration(
+                Token{value: "int".to_string(), token_type: TokenType::Type, pos: 5},
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 9}
+            )),
+            Box::new(ExpressionStatement(Expression::Assignment(
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 9},
+                Box::new(Expression::IntegerLiteral(
+                    Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 13}
+                ))
+            ))),
+            Box::new(ExpressionStatement(Expression::Binary(
+                Token{value: "<".to_string(), token_type: TokenType::LessThan, pos: 18},
+                Box::new(Expression::Variable(
+                    Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 16}
+                )),
+                Box::new(Expression::IntegerLiteral(
+                    Token{value: "10".to_string(), token_type: TokenType::IntegerLiteral, pos: 20}
+                ))
+            ))),
+            Box::new(ExpressionStatement(Expression::Assignment(
+                Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 24},
+                Box::new(Expression::Binary(
+                    Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 30},
+                    Box::new(Expression::Variable(
+                        Token{value: "i".to_string(), token_type: TokenType::Identifier, pos: 28}
+                    )),
+                    Box::new(Expression::IntegerLiteral(
+                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 32}
+                    ))
+                ))
+            ))),
+        ],
+        Box::new(Scope(vec![]))
+    )]))]
+    fn test_parse_for_statement(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case.clone()).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);
