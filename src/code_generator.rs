@@ -21,13 +21,28 @@ impl CodeGenerator {
             Program(_) => self.generate_program(root),
             ReturnStatement(_, _) => self.generate_return_statement(root),
             Declaration(_, _) => self.generate_declaration(root),
-            Assignment(_, _) => self.generate_assignment(root),
             ExpressionNode(expression) => self.generate_expression(expression),
             Scope(_) => self.generate_scope(root),
             If(_, _, _, _) => self.generate_if_statement(root),
             While(..) => self.generate_while(root),
             DoWhile(..) => self.generate_do_while(root),
-            ExpressionStatement(expression) => self.generate_expression(expression),
+            ExpressionStatement(..) => self.generate_expression_statement(root),
+        }
+    }
+
+    fn generate_expression_statement(&mut self, node: &ASTNode) -> String {
+        match node {
+            ExpressionStatement(expression) => {
+                if let Expression::Assignment(..) = expression {
+                    self.generate_assignment(expression)
+                } else {
+                    self.generate_expression(expression)
+                }
+            }
+            _ => panic!(
+                "Internal error: Expected expression statement, found {:?}",
+                node
+            ),
         }
     }
 
@@ -97,6 +112,7 @@ impl CodeGenerator {
             Expression::Variable(_) => self.generate_variable_expression(expression),
             Expression::Binary(_, _, _) => self.generate_binary_expression(expression),
             Expression::Unary(_, _) => self.generate_unary_expression(expression),
+            Expression::Assignment(..) => self.generate_assignment(expression),
             Expression::Parenthesized(internal_expression) => {
                 self.generate_expression(internal_expression)
             }
@@ -248,7 +264,6 @@ impl CodeGenerator {
                             CodeGenerator::get_reg1(definition.size())
                         )
                     }
-                    _ => panic!(""),
                 }
             }
             _ => panic!(
@@ -298,9 +313,9 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_assignment(&mut self, node: &ASTNode) -> String {
-        match node {
-            ASTNode::Assignment(identifier, expr_node) => {
+    fn generate_assignment(&mut self, expression: &Expression) -> String {
+        match expression {
+            Expression::Assignment(identifier, expr_node) => {
                 let variable = self.symbol_table.get(&identifier.value).unwrap_or_else(|| {
                     panic!(
                         "Assignment: the identifier `{}` is not defined",
@@ -317,7 +332,7 @@ impl CodeGenerator {
 
                 // TODO support referential assignment
                 let mov_instruction = CodeGenerator::mov_mnemonic(variable.size());
-                let mut result = self.generate(expr_node);
+                let mut result = self.generate_expression(expr_node);
 
                 result.push_str(&format!(
                     "{} {}, {}(%rbp)\n",

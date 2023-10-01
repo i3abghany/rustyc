@@ -7,14 +7,14 @@ pub enum Expression {
     Binary(Token, Box<Expression>, Box<Expression>),
     Unary(Token, Box<Expression>),
     Parenthesized(Box<Expression>),
+    Assignment(Token, Box<Expression>),
     Empty,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ASTNode {
-    ExpressionStatement(Box<Expression>),
+    ExpressionStatement(Expression),
     ExpressionNode(Expression),
-    Assignment(Token, Box<ASTNode>),      // Identifier, Expression
     Declaration(Token, Token),            // Type, Identifier
     ReturnStatement(Token, Box<ASTNode>), // ReturnKeyword, Expression
     Program(Vec<ASTNode>),
