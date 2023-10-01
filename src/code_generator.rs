@@ -27,6 +27,40 @@ impl CodeGenerator {
             While(..) => self.generate_while(root),
             DoWhile(..) => self.generate_do_while(root),
             ExpressionStatement(..) => self.generate_expression_statement(root),
+            For(..) => self.generate_for(root),
+        }
+    }
+
+    fn generate_for(&mut self, node: &ASTNode) -> String {
+        match node {
+            For(_, [declaration, assignment, condition, update], body) => {
+                let stack_top = self.symbol_table.current_scope_stack_top();
+                self.symbol_table
+                    .push_scope(symbol_table::Scope::new(stack_top));
+                let mut result = String::new();
+                result.push_str(&self.generate(declaration));
+                result.push_str(&self.generate(assignment));
+                let enter_label = self.unique_label("__FOR_ENTER_");
+                result.push_str(&format!("{}:\n", enter_label));
+                let mut body = self.generate(body);
+                body.push_str(&self.generate(update));
+                body.push_str(&format!("jmp {}\n", enter_label));
+                let condition = self.generate(condition);
+
+                if condition.is_empty() {
+                    result.push_str(&body);
+                } else {
+                    result.push_str(&self.generate_condition_block(
+                        "__FOR_EXIT_",
+                        &condition,
+                        &body,
+                    ));
+                }
+
+                self.symbol_table.pop_scope();
+                result
+            }
+            _ => panic!("Internal error: Expected for statement, found {:?}", node),
         }
     }
 
@@ -602,6 +636,32 @@ mod tests {
         60
     )]
     fn test_if_statements(#[case] test_case: String, #[case] expected: i32) -> std::io::Result<()> {
+        let generated = generate_code(test_case);
+        expect_exit_code(generated, expected)?;
+        Ok(())
+    }
+
+    #[rstest::rstest]
+    #[case(
+        "int res = 0; for (int i = 0; i <= 5; i = i + 1) { res = res + i * i; } return res;",
+        55
+    )]
+    #[case(
+        "int a = 0;
+        int b = 1;
+        int c;
+        for (int i = 0; i <= 44; i = i + 1) {
+            c = b + a;
+            a = b;
+            b = c;
+        }
+        return c;",
+        1836311903
+    )]
+    fn test_for_statements(
+        #[case] test_case: String,
+        #[case] expected: i32,
+    ) -> std::io::Result<()> {
         let generated = generate_code(test_case);
         expect_exit_code(generated, expected)?;
         Ok(())

@@ -58,6 +58,7 @@ pub const KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "else" => TokenType::Else,
     "while" => TokenType::While,
     "do" => TokenType::Do,
+    "for" => TokenType::For,
     "return" => TokenType::Return,
 };
 
