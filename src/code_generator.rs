@@ -18,12 +18,15 @@ impl CodeGenerator {
 
     pub fn generate(&mut self, root: &ASTNode) -> String {
         match root {
-            Program(_) => self.generate_program(root),
-            ReturnStatement(_, _) => self.generate_return_statement(root),
-            Declaration(_, _) => self.generate_declaration(root),
+            Program(..) => self.generate_program(root),
+            ReturnStatement(..) => self.generate_return_statement(root),
+            VariableDeclaration(..) => self.generate_variable_declaration(root),
+            VariableDefinition(..) => self.generate_variable_definition(root),
+            FunctionDeclaration(..) => todo!(),
+            FunctionDefinition(..) => todo!(),
             ExpressionNode(expression) => self.generate_expression(expression),
-            Scope(_) => self.generate_scope(root),
-            If(_, _, _, _) => self.generate_if_statement(root),
+            Scope(..) => self.generate_scope(root),
+            If(..) => self.generate_if_statement(root),
             While(..) => self.generate_while(root),
             DoWhile(..) => self.generate_do_while(root),
             ExpressionStatement(..) => self.generate_expression_statement(root),
@@ -33,13 +36,12 @@ impl CodeGenerator {
 
     fn generate_for(&mut self, node: &ASTNode) -> String {
         match node {
-            For(_, [declaration, assignment, condition, update], body) => {
+            For(_, [init, condition, update], body) => {
                 let stack_top = self.symbol_table.current_scope_stack_top();
                 self.symbol_table
                     .push_scope(symbol_table::Scope::new(stack_top));
                 let mut result = String::new();
-                result.push_str(&self.generate(declaration));
-                result.push_str(&self.generate(assignment));
+                result.push_str(&self.generate(init));
                 let enter_label = self.unique_label("__FOR_ENTER_");
                 result.push_str(&format!("{}:\n", enter_label));
                 let mut body = self.generate(body);
@@ -411,9 +413,9 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_declaration(&mut self, node: &ASTNode) -> String {
+    fn generate_variable_declaration(&mut self, node: &ASTNode) -> String {
         match node {
-            ASTNode::Declaration(variable_type, identifier) => {
+            ASTNode::VariableDeclaration(variable_type, identifier) => {
                 if self
                     .symbol_table
                     .get_at_current_scope(&identifier.value)
@@ -435,6 +437,28 @@ impl CodeGenerator {
             _ => panic!("Declaration: Expected declaration node, found {:?}", node),
         }
         "".to_string()
+    }
+
+    fn generate_variable_definition(&mut self, node: &ASTNode) -> String {
+        if let VariableDefinition(type_token, identifier, expression) = node {
+            self.generate_variable_declaration(&VariableDeclaration(
+                type_token.clone(),
+                identifier.clone(),
+            ));
+            if let ExpressionNode(expr) = &(**expression) {
+                self.generate_assignment(&Assignment(identifier.clone(), Box::new(expr.clone())))
+            } else {
+                panic!(
+                    "Internal error: Expected expression node, found {:?}",
+                    expression
+                )
+            }
+        } else {
+            panic!(
+                "Internal error: Expected variable definition, found {:?}",
+                node
+            )
+        }
     }
 
     fn mov_mnemonic(size: usize) -> &'static str {
