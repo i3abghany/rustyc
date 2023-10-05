@@ -446,7 +446,10 @@ impl CodeGenerator {
                 identifier.clone(),
             ));
             if let ExpressionNode(expr) = &(**expression) {
-                self.generate_assignment(&Assignment(identifier.clone(), Box::new(expr.clone())))
+                self.generate_assignment(&Expression::Assignment(
+                    identifier.clone(),
+                    Box::new(expr.clone()),
+                ))
             } else {
                 panic!(
                     "Internal error: Expected expression node, found {:?}",

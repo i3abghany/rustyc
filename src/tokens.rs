@@ -33,6 +33,7 @@ pub enum TokenType {
     CloseCurly,
     SemiColon,
     IntegerLiteral,
+    Comma,
     Eof,
 }
 
@@ -79,4 +80,5 @@ pub const SINGLE_CHAR_TOKENS: phf::Map<char, TokenType> = phf_map! {
     '^' => TokenType::Caret,
     '|' => TokenType::Bar,
     '&' => TokenType::And,
+    ',' => TokenType::Comma,
 };
