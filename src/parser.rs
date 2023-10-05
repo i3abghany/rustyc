@@ -278,19 +278,68 @@ impl Parser {
         ASTNode::ExpressionNode(Expression::IntegerLiteral(self.consume()))
     }
 
-    fn parse_declaration(&mut self) -> ASTNode {
+    fn parse_declaration_or_definition(&mut self) -> ASTNode {
+        let result = self.parse_declaration_or_definition_no_semicolon();
+        match result {
+            FunctionDefinition(..) => {}
+            _ => {
+                self.try_consume(TokenType::SemiColon);
+            }
+        }
+        result
+    }
+
+    fn parse_declaration_or_definition_no_semicolon(&mut self) -> ASTNode {
         let type_token = self.try_consume(TokenType::Type);
         let identifier = self.try_consume(TokenType::Identifier);
         if self.current().token_type == TokenType::Equals {
-            // We have a declaration followed by an assignment.
-            // The declaration ends here, and we need to parse
-            // again starting from the identifier.
-            self.pos -= 1;
+            self.advance();
+            let expression = ExpressionNode(self.parse_expression());
+            VariableDefinition(type_token, identifier, Box::new(expression))
+        } else if self.current().token_type == TokenType::SemiColon
+            || self.current().token_type == TokenType::Comma
+            || self.current().token_type == TokenType::CloseParen
+        {
+            VariableDeclaration(type_token, identifier)
         } else {
-            self.try_consume(TokenType::SemiColon);
-        }
+            let parameters = self.parse_function_parameters();
 
-        ASTNode::Declaration(type_token, identifier)
+            if self.current().token_type == TokenType::SemiColon {
+                FunctionDeclaration(type_token, identifier, parameters)
+            } else {
+                let body = self.parse_scope();
+                FunctionDefinition(type_token, identifier, parameters, Box::new(body))
+            }
+        }
+    }
+
+    fn is_declaration(node: &ASTNode) -> bool {
+        match node {
+            VariableDeclaration(..) | FunctionDeclaration(..) => true,
+            _ => false,
+        }
+    }
+
+    fn parse_function_parameters(&mut self) -> Vec<ASTNode> {
+        self.try_consume(TokenType::OpenParen);
+
+        let mut result = Vec::new();
+
+        while self.current().token_type != TokenType::CloseParen
+            && self.current().token_type != TokenType::Eof
+        {
+            let p = self.parse_declaration_or_definition_no_semicolon();
+            if Parser::is_declaration(&p) {
+                result.push(p);
+            } else {
+                panic!("Expected parameter declaration, found: {:?}", p)
+            }
+            if self.current().token_type != TokenType::CloseParen {
+                self.try_consume(TokenType::Comma);
+            }
+        }
+        self.try_consume(TokenType::CloseParen);
+        result
     }
 
     fn try_consume(&mut self, token_type: TokenType) -> Token {
@@ -945,6 +994,90 @@ mod tests {
         Box::new(Scope(vec![]))
     )]))]
     fn test_parse_for_statement(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case.clone()).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("int func();", Program(vec![
+        FunctionDeclaration(
+            Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
+            Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
+            vec![]
+        )
+    ]))]
+    #[case("int func(int x);", Program(vec![
+    FunctionDeclaration(
+            Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
+            Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
+            vec![
+                VariableDeclaration(
+                    Token { value: "int".to_string(), token_type: TokenType::Type, pos: 9 },
+                    Token { value: "x".to_string(), token_type: TokenType::Identifier, pos: 13 },
+                )
+            ]
+        )
+    ]))]
+    #[case("int func(int x, int y);", Program(vec![
+    FunctionDeclaration(
+            Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
+            Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
+            vec![
+                VariableDeclaration(
+                    Token { value: "int".to_string(), token_type: TokenType::Type, pos: 9 },
+                    Token { value: "x".to_string(), token_type: TokenType::Identifier, pos: 13 },
+                ),
+                VariableDeclaration(
+                    Token { value: "int".to_string(), token_type: TokenType::Type, pos: 16 },
+                    Token { value: "y".to_string(), token_type: TokenType::Identifier, pos: 20 },
+                )
+            ]
+        )
+    ]))]
+    fn test_function_definition(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case.clone()).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("int func();", Program(vec![
+        FunctionDeclaration(
+            Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
+            Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
+            vec![]
+        )
+    ]))]
+    #[case("int func(int x);", Program(vec![
+    FunctionDeclaration(
+            Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
+            Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
+            vec![
+                VariableDeclaration(
+                    Token { value: "int".to_string(), token_type: TokenType::Type, pos: 9 },
+                    Token { value: "x".to_string(), token_type: TokenType::Identifier, pos: 13 },
+                )
+            ]
+        )
+    ]))]
+    #[case("int func(int x, int y);", Program(vec![
+    FunctionDeclaration(
+            Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
+            Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
+            vec![
+                VariableDeclaration(
+                    Token { value: "int".to_string(), token_type: TokenType::Type, pos: 9 },
+                    Token { value: "x".to_string(), token_type: TokenType::Identifier, pos: 13 },
+                ),
+                VariableDeclaration(
+                    Token { value: "int".to_string(), token_type: TokenType::Type, pos: 16 },
+                    Token { value: "y".to_string(), token_type: TokenType::Identifier, pos: 20 },
+                )
+            ]
+        )
+    ]))]
+    fn test_function_declaration(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case.clone()).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);
