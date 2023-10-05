@@ -22,8 +22,8 @@ impl CodeGenerator {
             ReturnStatement(..) => self.generate_return_statement(root),
             VariableDeclaration(..) => self.generate_variable_declaration(root),
             VariableDefinition(..) => self.generate_variable_definition(root),
-            FunctionDeclaration(..) => todo!(),
-            FunctionDefinition(..) => todo!(),
+            FunctionDeclaration(..) => self.generate_function_declaration(root),
+            FunctionDefinition(..) => self.generate_function_definition(root),
             ExpressionNode(expression) => self.generate_expression(expression),
             Scope(..) => self.generate_scope(root),
             If(..) => self.generate_if_statement(root),
@@ -125,19 +125,25 @@ impl CodeGenerator {
     }
 
     fn generate_scope(&mut self, scope: &ASTNode) -> String {
+        self.generate_scope_with_variables(scope, symbol_table::Scope::default(&self.symbol_table))
+    }
+
+    fn generate_scope_with_variables(
+        &mut self,
+        scope_node: &ASTNode,
+        scope: symbol_table::Scope,
+    ) -> String {
         let mut result = String::new();
-        match scope {
+        match scope_node {
             ASTNode::Scope(statements) => {
-                let stack_top = self.symbol_table.current_scope_stack_top();
-                self.symbol_table
-                    .push_scope(symbol_table::Scope::new(stack_top));
+                self.symbol_table.push_scope(scope);
                 for statement in statements {
                     result.push_str(self.generate(statement).as_str());
                 }
                 self.symbol_table.pop_scope();
                 result
             }
-            _ => panic!(""),
+            _ => panic!(),
         }
     }
 
@@ -300,6 +306,7 @@ impl CodeGenerator {
                             CodeGenerator::get_reg1(definition.size())
                         )
                     }
+                    _ => panic!(),
                 }
             }
             _ => panic!(
@@ -312,7 +319,7 @@ impl CodeGenerator {
     fn generate_program(&mut self, node: &ASTNode) -> String {
         let mut result = String::new();
         match node {
-            ASTNode::Program(nodes_vector) => {
+            Program(nodes_vector) => {
                 self.symbol_table.push_scope(symbol_table::Scope::new(-8));
                 self.symbol_table.reset_largest_offset();
                 for node in nodes_vector {
@@ -326,9 +333,13 @@ impl CodeGenerator {
                     push %rbp\n\
                     mov %rsp, %rbp\n\
                     subq ${}, %rsp\n\
-                    {}",
+                    {}\
+                    mov %rbp, %rsp\n\
+                    mov {}, %rax\n\
+                    pop %rbp",
                     -self.symbol_table.current_largest_offset(),
-                    result
+                    result,
+                    CodeGenerator::get_reg1(8)
                 )
             }
             _ => panic!("Internal Error: Expected program node, found {:?}", node),
@@ -337,7 +348,7 @@ impl CodeGenerator {
 
     fn generate_return_statement(&mut self, node: &ASTNode) -> String {
         match node {
-            ASTNode::ReturnStatement(_, expr_node) => {
+            ReturnStatement(_, expr_node) => {
                 let mut result = self.generate(expr_node);
                 result.push_str(&format!(
                     "mov %rbp, %rsp\nmov {}, %rax\npop %rbp\nret\n",
@@ -347,6 +358,10 @@ impl CodeGenerator {
             }
             _ => panic!("Return: Expected a return node, found {:?}", node),
         }
+    }
+
+    fn generate_return_void() -> &'static str {
+        "mov %rbp, %rsp\npop %rbp\nret\n"
     }
 
     fn generate_assignment(&mut self, expression: &Expression) -> String {
@@ -364,6 +379,7 @@ impl CodeGenerator {
                     Symbol::Variable { stack_offset, .. } => {
                         variable_stack_offset = *stack_offset;
                     }
+                    _ => panic!(),
                 }
 
                 // TODO support referential assignment
@@ -378,7 +394,7 @@ impl CodeGenerator {
                 ));
                 result
             }
-            _ => panic!(""),
+            _ => panic!(),
         }
     }
 
@@ -415,7 +431,7 @@ impl CodeGenerator {
 
     fn generate_variable_declaration(&mut self, node: &ASTNode) -> String {
         match node {
-            ASTNode::VariableDeclaration(variable_type, identifier) => {
+            VariableDeclaration(variable_type, identifier) => {
                 if self
                     .symbol_table
                     .get_at_current_scope(&identifier.value)
@@ -427,12 +443,8 @@ impl CodeGenerator {
                     )
                 }
 
-                let stack_offset = self.symbol_table.current_scope_stack_top();
-                let symbol = Symbol::Variable {
-                    variable_type: variable_type.value.clone(),
-                    stack_offset,
-                };
-                self.symbol_table.insert(&identifier.value, symbol);
+                self.symbol_table
+                    .insert_top(&identifier.value, &variable_type.value);
             }
             _ => panic!("Declaration: Expected declaration node, found {:?}", node),
         }
@@ -456,6 +468,94 @@ impl CodeGenerator {
                     expression
                 )
             }
+        } else {
+            panic!(
+                "Internal error: Expected variable definition, found {:?}",
+                node
+            )
+        }
+    }
+
+    fn generate_function_declaration(&mut self, node: &ASTNode) -> String {
+        match node {
+            FunctionDeclaration(return_type, identifier, func_parameters) => {
+                if self
+                    .symbol_table
+                    .get_at_current_scope(&identifier.value)
+                    .is_some()
+                {
+                    panic!(
+                        "Declaration: the function `{}` is already declared",
+                        identifier.value
+                    )
+                }
+
+                let mut parameters = Vec::new();
+                for node in func_parameters {
+                    if let VariableDeclaration(variable_type, ..) = node {
+                        parameters.push(variable_type.value.clone());
+                    } else if let FunctionDeclaration(..) = node {
+                        todo!("Support function declaration as a parameter")
+                    } else {
+                        panic!("")
+                    }
+                }
+                let symbol = Symbol::Function {
+                    return_type: return_type.value.clone(),
+                    parameters,
+                };
+
+                self.symbol_table.insert(&identifier.value, &symbol);
+            }
+            _ => panic!("Declaration: Expected declaration node, found {:?}", node),
+        }
+        "".to_string()
+    }
+
+    fn generate_function_definition(&mut self, node: &ASTNode) -> String {
+        let mut result = String::new();
+
+        if let FunctionDefinition(return_type, identifier, parameters, body) = node {
+            self.generate_function_declaration(&FunctionDeclaration(
+                return_type.clone(),
+                identifier.clone(),
+                parameters.clone(),
+            ));
+
+            let mut scope = symbol_table::Scope::default(&self.symbol_table);
+            for param in parameters {
+                if let VariableDeclaration(variable_type, name) = param {
+                    scope.insert_top(name.value.as_str(), &variable_type.value);
+                } else if let FunctionDeclaration(..) = node {
+                    todo!("Support function declaration as a parameter")
+                } else {
+                    panic!("")
+                }
+            }
+
+            self.symbol_table.reset_largest_offset();
+            result.push_str(&self.generate_scope_with_variables(body, scope));
+
+            // Quick hack. Instead of checking whether the function returns
+            //  at the end, just inject a redundant return
+            // TODO show warnings in case of mismatched returns
+
+            format!(
+                ".global {name}\n\
+                    {name}:\n\
+                    push %rbp\n\
+                    mov %rsp, %rbp\n\
+                    subq ${frame_size}, %rsp\n\
+                    {body}\
+                    # Redundant return ---\n\
+                    {redundant_return}\
+                    # --------------------\n\
+                ",
+                name = identifier.value,
+                frame_size = -self.symbol_table.current_largest_offset(),
+                body = result,
+                redundant_return = CodeGenerator::generate_return_void()
+            )
         } else {
             panic!(
                 "Internal error: Expected variable definition, found {:?}",
