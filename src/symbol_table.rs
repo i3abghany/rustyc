@@ -1,11 +1,17 @@
+use crate::symbol_table::Symbol::Variable;
 use std::cmp::min;
 use std::collections::HashMap;
 
 #[derive(Clone)]
 pub enum Symbol {
+    // TODO change types from strings to enums.
     Variable {
         variable_type: String,
         stack_offset: isize,
+    },
+    Function {
+        return_type: String,
+        parameters: Vec<String>,
     },
 }
 
@@ -26,6 +32,29 @@ impl Scope {
             symbols: HashMap::default(),
             stack_top: start_offset,
         }
+    }
+
+    pub fn default(table: &SymbolTable) -> Self {
+        Self::new(table.current_scope_stack_top())
+    }
+
+    pub fn insert(&mut self, symbol_name: &str, declaration: &Symbol) {
+        self.symbols
+            .insert(String::from(symbol_name), declaration.clone());
+        match declaration {
+            Symbol::Variable { .. } => self.stack_top -= declaration.size() as isize,
+            Symbol::Function { .. } => {}
+        }
+    }
+
+    pub fn insert_top(&mut self, symbol_name: &str, variable_type: &str) {
+        self.insert(
+            symbol_name,
+            &Variable {
+                variable_type: String::from(variable_type),
+                stack_offset: self.stack_top,
+            },
+        )
     }
 }
 
@@ -85,14 +114,18 @@ impl SymbolTable {
         self.get_at_scope(self.scopes.len() - 1, symbol_name)
     }
 
-    pub fn insert(&mut self, symbol_name: &String, definition: Symbol) {
-        let last = self.scopes.len() - 1;
-        self.scopes[last]
-            .symbols
-            .insert(symbol_name.clone(), definition.clone());
-        match definition {
-            Symbol::Variable { .. } => self.scopes[last].stack_top -= definition.size() as isize,
-        }
+    pub fn insert(&mut self, symbol_name: &str, declaration: &Symbol) {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .insert(symbol_name, declaration);
+    }
+
+    pub fn insert_top(&mut self, symbol_name: &str, variable_type: &str) {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .insert_top(symbol_name, variable_type);
     }
 
     pub fn current_scope_stack_top(&self) -> isize {
