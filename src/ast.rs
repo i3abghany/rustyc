@@ -20,7 +20,7 @@ pub enum ASTNode {
     FunctionDeclaration(Token, Token, Vec<ASTNode>), // Type, Identifier, Parameters
     FunctionDefinition(Token, Token, Vec<ASTNode>, Box<ASTNode>), // Type, Identifier, Parameters, Body
     ReturnStatement(Token, Box<ASTNode>),                         // ReturnKeyword, Expression
-    Program(Vec<ASTNode>),
+    TranslationUnit(Vec<ASTNode>),
     If(Token, Box<ASTNode>, Box<ASTNode>, Option<Box<ASTNode>>), // If, Condition, Body, Else
     While(Token, Box<ASTNode>, Box<ASTNode>),                    // While, Condition, Body
     DoWhile(Token, Box<ASTNode>, Token, Box<ASTNode>),           // Do, Body, While, Condition
