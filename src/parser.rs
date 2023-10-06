@@ -250,9 +250,38 @@ impl Parser {
         expr
     }
 
+    fn parse_function_arguments(&mut self) -> Vec<Expression> {
+        let mut result = Vec::new();
+        self.try_consume(TokenType::OpenParen);
+        while self.current().token_type != TokenType::CloseParen
+            && self.current().token_type != TokenType::Eof
+        {
+            result.push(self.parse_expression());
+            if self.current().token_type != TokenType::CloseParen {
+                self.try_consume(TokenType::Comma);
+            }
+        }
+        self.try_consume(TokenType::CloseParen);
+        result
+    }
+
+    fn parse_function_call(&mut self) -> Expression {
+        let identifier = self.try_consume(TokenType::Identifier);
+        let arguments = self.parse_function_arguments();
+        Expression::FunctionCall(identifier, arguments)
+    }
+
+    fn parse_primary_expression_starting_with_identifier(&mut self) -> Expression {
+        if self.peak(1).token_type == TokenType::OpenParen {
+            self.parse_function_call()
+        } else {
+            Expression::Variable(self.consume())
+        }
+    }
+
     fn parse_primary_expression(&mut self) -> Expression {
         match self.current().token_type {
-            TokenType::Identifier => Expression::Variable(self.consume()),
+            TokenType::Identifier => self.parse_primary_expression_starting_with_identifier(),
             TokenType::IntegerLiteral => Expression::IntegerLiteral(self.consume()),
             TokenType::OpenParen => self.parse_parenthesized_expression(),
             _ => panic!("Unexpected token: {:?}", self.current()),
@@ -1077,6 +1106,52 @@ mod tests {
         )
     ]))]
     fn test_function_declaration(#[case] test_case: String, #[case] expected: ASTNode) {
+        let tokens = Lexer::new(test_case.clone()).lex();
+        let result = Parser::new(tokens).parse();
+        assert_eq!(expected, result);
+    }
+
+    #[rstest::rstest]
+    #[case("f();", TranslationUnit(vec![
+        ExpressionStatement(
+            Expression::FunctionCall(
+                Token { value: "f".to_string(), token_type: TokenType::Identifier, pos: 0},
+                vec![]
+            )
+        )]
+    ))]
+    #[case("f(1);", TranslationUnit(vec![
+        ExpressionStatement(
+            Expression::FunctionCall(
+                Token { value: "f".to_string(), token_type: TokenType::Identifier, pos: 0},
+                vec![
+                    Expression::IntegerLiteral(
+                        Token { value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 2}
+                    )
+                ]
+            )
+        )]
+    ))]
+    #[case("f(1, x, g());", TranslationUnit(vec![
+        ExpressionStatement(
+            Expression::FunctionCall(
+                Token { value: "f".to_string(), token_type: TokenType::Identifier, pos: 0},
+                vec![
+                    Expression::IntegerLiteral(
+                        Token { value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 2}
+                    ),
+                    Expression::Variable(
+                        Token { value: "x".to_string(), token_type: TokenType::Identifier, pos: 5}
+                    ),
+                    Expression::FunctionCall(
+                        Token { value: "g".to_string(), token_type: TokenType::Identifier, pos: 8},
+                        vec![]
+                    )
+                ]
+            )
+        )]
+    ))]
+    fn test_parse_function_call(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case.clone()).lex();
         let result = Parser::new(tokens).parse();
         assert_eq!(expected, result);

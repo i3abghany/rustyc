@@ -155,9 +155,40 @@ impl CodeGenerator {
             Expression::Binary(_, _, _) => self.generate_binary_expression(expression),
             Expression::Unary(_, _) => self.generate_unary_expression(expression),
             Expression::Assignment(..) => self.generate_assignment(expression),
+            Expression::FunctionCall(..) => self.generate_function_call(expression),
             Expression::Parenthesized(internal_expression) => {
                 self.generate_expression(internal_expression)
             }
+        }
+    }
+
+    fn get_expression_size_in_bytes(exp: &Expression) -> usize {
+        4
+    }
+
+    fn generate_function_call(&mut self, call: &Expression) -> String {
+        let mut result = String::new();
+        match call {
+            Expression::FunctionCall(name, parameters) => {
+                // TODO extract pointer size into a function (and use it in the symbol table too)
+                let mut push_offset = -16; // return address + rbp
+                for param in parameters {
+                    let param_size = CodeGenerator::get_expression_size_in_bytes(param);
+                    // Since we're dealing with the stack, subtraction of the offset occurs first
+                    push_offset -= param_size as i32;
+                    result.push_str(&format!(
+                        "{computation}\
+                         {mov} {result}, {offset}(%rsp)\n",
+                        computation = self.generate_expression(param),
+                        mov = CodeGenerator::mov_mnemonic(param_size),
+                        result = CodeGenerator::get_reg1(param_size),
+                        offset = push_offset
+                    ));
+                }
+                result.push_str(&format!("call {}\n", name.value));
+                result
+            }
+            _ => panic!("Exp"),
         }
     }
 
@@ -302,7 +333,7 @@ impl CodeGenerator {
                         format!(
                             "{} {}(%rbp), {}\n",
                             mov_instruction,
-                            stack_offset,
+                            *stack_offset,
                             CodeGenerator::get_reg1(definition.size())
                         )
                     }
@@ -817,5 +848,50 @@ mod tests {
     fn test_program_without_main(#[case] test_case: String) {
         let generated = generate_code(test_case);
         expect_exit_code(generated, 1).unwrap();
+    }
+
+    #[rstest::rstest]
+    #[case(
+        "int f(int y, int x) { return x + y; }
+
+        int main() {
+                return f(6, 7);
+        }",
+        13
+    )]
+    #[case(
+        "
+        int add(int y, int x) {
+            return x + y;
+        }
+
+        int ident(int x) { return x; }
+
+        int fib(int n) {
+
+            int a = 0;
+            int b = 1;
+            int c;
+            while (n >= 0) {
+                c = add(a, b);
+                a = ident(b);
+                b = ident(ident(c));
+                n = ident(n - 1);
+            }
+            return ident(c);
+        }
+
+        int main() {
+            return fib(3) * fib(5) - fib(2);
+        }",
+        62
+    )]
+    fn test_function_invocation(
+        #[case] test_case: String,
+        #[case] expected: i32,
+    ) -> std::io::Result<()> {
+        let generated = generate_code(test_case);
+        expect_exit_code(generated, expected)?;
+        Ok(())
     }
 }
