@@ -52,7 +52,7 @@ impl Parser {
             }
             result.push(self.parse_unit());
         }
-        ASTNode::Program(result)
+        TranslationUnit(result)
     }
 
     fn parse_scope(&mut self) -> ASTNode {
@@ -64,7 +64,7 @@ impl Parser {
             result.push(self.parse_unit());
         }
         self.try_consume(TokenType::CloseCurly);
-        ASTNode::Scope(result)
+        Scope(result)
     }
 
     fn parse_statement(&mut self) -> ASTNode {
@@ -368,10 +368,9 @@ mod tests {
     use super::*;
     use crate::ast::ASTNode::*;
     use crate::lexer::Lexer;
-    use rstest::rstest;
 
     #[rstest::rstest]
-    #[case("int x = 55;", Program(
+    #[case("int x = 55;", TranslationUnit(
         vec![
             VariableDefinition(
                 Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
@@ -389,7 +388,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 123;", Program(
+    #[case("return 123;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(Expression::IntegerLiteral(
@@ -404,7 +403,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 1 ^ 2;", Program(
+    #[case("return 1 ^ 2;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -420,7 +419,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 + 2 * 3;", Program(
+    #[case("return 1 + 2 * 3;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -442,7 +441,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 || x * 3;", Program(
+    #[case("return 1 || x * 3;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
                 Box::new(ExpressionNode(
@@ -465,7 +464,7 @@ mod tests {
             )
         ])
     )]
-    #[case("{ return 1 && x * 3; }", Program(vec![Scope(
+    #[case("{ return 1 && x * 3; }", TranslationUnit(vec![Scope(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 2},
                 Box::new(ExpressionNode(
@@ -495,7 +494,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("return 1 != 2;", Program(
+    #[case("return 1 != 2;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -511,7 +510,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 >= 2;", Program(
+    #[case("return 1 >= 2;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -527,7 +526,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 <= 2;", Program(
+    #[case("return 1 <= 2;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -543,7 +542,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 < 2;", Program(
+    #[case("return 1 < 2;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -559,7 +558,7 @@ mod tests {
             ))
         )])
     )]
-    #[case("return 1 > 2;", Program(
+    #[case("return 1 > 2;", TranslationUnit(
         vec![ReturnStatement(
             Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
             Box::new(ExpressionNode(
@@ -582,7 +581,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (true) { return 1; }", Program(vec![If(
+    #[case("if (true) { return 1; }", TranslationUnit(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 4}
@@ -604,7 +603,7 @@ mod tests {
     #[rstest::rstest]
     #[
         case("return -123;",
-            Program(
+            TranslationUnit(
                 vec![
                     ReturnStatement(
                         Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
@@ -632,7 +631,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) { return 1; } else { return 2; }", Program(vec![If(
+    #[case("if (ture) { return 1; } else { return 2; }", TranslationUnit(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
@@ -657,7 +656,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) { return 1; } else if (false) { return 2; }", Program(vec![If(
+    #[case("if (ture) { return 1; } else if (false) { return 2; }", TranslationUnit(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
@@ -689,7 +688,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) { return 1; } else if (false) { return 2; } else { return 3; }", Program(vec![If(
+    #[case("if (ture) { return 1; } else if (false) { return 2; } else { return 3; }", TranslationUnit(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
@@ -726,7 +725,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("if (ture) return 1; else if (false) return 2; else { return 3; }", Program(vec![If(
+    #[case("if (ture) return 1; else if (false) return 2; else { return 3; }", TranslationUnit(vec![If(
         Token { value: "if".to_string(), token_type: TokenType::If, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "ture".to_string(), token_type: TokenType::Identifier, pos: 4}
@@ -766,7 +765,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("while (true) { return 1; }", Program(vec![While(
+    #[case("while (true) { return 1; }", TranslationUnit(vec![While(
         Token { value: "while".to_string(), token_type: TokenType::While, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 7}
@@ -778,7 +777,7 @@ mod tests {
             )))
         )]))
     )]))]
-    #[case("while (true) return 1;", Program(vec![While(
+    #[case("while (true) return 1;", TranslationUnit(vec![While(
         Token { value: "while".to_string(), token_type: TokenType::While, pos: 0 },
         Box::new(ExpressionNode(Expression::Variable(
             Token{value: "true".to_string(), token_type: TokenType::Identifier, pos: 7}
@@ -797,7 +796,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("int x = 1; do { x = x + 1; } while (x);", Program(vec![
+    #[case("int x = 1; do { x = x + 1; } while (x);", TranslationUnit(vec![
         VariableDefinition(
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
@@ -826,7 +825,7 @@ mod tests {
         )
     ]))]
     #[rstest::rstest]
-    #[case("int x = 1; do x = x + 1; while (x);", Program(vec![
+    #[case("int x = 1; do x = x + 1; while (x);", TranslationUnit(vec![
         VariableDefinition(
             Token{value: "int".to_string(), token_type: TokenType::Type, pos: 0},
             Token{value: "x".to_string(), token_type: TokenType::Identifier, pos: 4},
@@ -861,7 +860,7 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("for (;;);", Program(vec![For(
+    #[case("for (;;);", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(ExpressionStatement(Expression::Empty)),
@@ -870,7 +869,7 @@ mod tests {
         ],
         Box::new(Scope(vec![ExpressionStatement(Expression::Empty)]))
     )]))]
-    #[case("for (int i;;) { ;; }", Program(vec![For(
+    #[case("for (int i;;) { ;; }", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(VariableDeclaration(
@@ -882,7 +881,7 @@ mod tests {
         ],
         Box::new(Scope(vec![ExpressionStatement(Expression::Empty), ExpressionStatement(Expression::Empty)]))
     )]))]
-    #[case("for (int i = 1;;) {}", Program(vec![For(
+    #[case("for (int i = 1;;) {}", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(VariableDefinition(
@@ -897,7 +896,7 @@ mod tests {
         ],
         Box::new(Scope(vec![]))
     )]))]
-    #[case("for (; i < 10;) {}", Program(vec![For(
+    #[case("for (; i < 10;) {}", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(ExpressionStatement(Expression::Empty)),
@@ -914,7 +913,7 @@ mod tests {
         ],
         Box::new(Scope(vec![]))
     )]))]
-    #[case("for (; i = 1;) {}", Program(vec![For(
+    #[case("for (; i = 1;) {}", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(ExpressionStatement(Expression::Empty)),
@@ -928,7 +927,7 @@ mod tests {
         ],
         Box::new(Scope(vec![]))
     )]))]
-    #[case("for (;; i) {}", Program(vec![For(
+    #[case("for (;; i) {}", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(ExpressionStatement(Expression::Empty)),
@@ -939,7 +938,7 @@ mod tests {
         ],
         Box::new(Scope(vec![]))
     )]))]
-    #[case("for (;; i = i + 1) {}", Program(vec![For(
+    #[case("for (;; i = i + 1) {}", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(ExpressionStatement(Expression::Empty)),
@@ -959,7 +958,7 @@ mod tests {
         ],
         Box::new(Scope(vec![]))
     )]))]
-    #[case("for (int i = 1; i < 10; i = i + 1) {}", Program(vec![For(
+    #[case("for (int i = 1; i < 10; i = i + 1) {}", TranslationUnit(vec![For(
         Token{value: "for".to_string(), token_type: TokenType::For, pos: 0},
         [
             Box::new(VariableDefinition(
@@ -1000,14 +999,14 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("int func();", Program(vec![
+    #[case("int func();", TranslationUnit(vec![
         FunctionDeclaration(
             Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
             Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
             vec![]
         )
     ]))]
-    #[case("int func(int x);", Program(vec![
+    #[case("int func(int x);", TranslationUnit(vec![
     FunctionDeclaration(
             Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
             Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
@@ -1019,7 +1018,7 @@ mod tests {
             ]
         )
     ]))]
-    #[case("int func(int x, int y);", Program(vec![
+    #[case("int func(int x, int y);", TranslationUnit(vec![
     FunctionDeclaration(
             Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
             Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
@@ -1042,14 +1041,14 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("int func();", Program(vec![
+    #[case("int func();", TranslationUnit(vec![
         FunctionDeclaration(
             Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
             Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
             vec![]
         )
     ]))]
-    #[case("int func(int x);", Program(vec![
+    #[case("int func(int x);", TranslationUnit(vec![
     FunctionDeclaration(
             Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
             Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
@@ -1061,7 +1060,7 @@ mod tests {
             ]
         )
     ]))]
-    #[case("int func(int x, int y);", Program(vec![
+    #[case("int func(int x, int y);", TranslationUnit(vec![
     FunctionDeclaration(
             Token { value: "int".to_string(), token_type: TokenType::Type, pos: 0 },
             Token { value: "func".to_string(), token_type: TokenType::Identifier, pos: 4 },
