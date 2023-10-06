@@ -8,6 +8,7 @@ pub enum Expression {
     Unary(Token, Box<Expression>),
     Parenthesized(Box<Expression>),
     Assignment(Token, Box<Expression>),
+    FunctionCall(Token, Vec<Expression>),
     Empty,
 }
 

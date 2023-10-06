@@ -16,8 +16,15 @@ pub enum Symbol {
 }
 
 impl Symbol {
-    pub fn size(&self) -> usize {
+    fn get_type_size_in_bytes(type_str: &str) -> usize {
         4
+    }
+
+    pub fn size(&self) -> usize {
+        match self {
+            Variable { variable_type, .. } => Symbol::get_type_size_in_bytes(variable_type),
+            Symbol::Function { .. } => panic!(),
+        }
     }
 }
 
@@ -52,7 +59,8 @@ impl Scope {
             symbol_name,
             &Variable {
                 variable_type: String::from(variable_type),
-                stack_offset: self.stack_top,
+                stack_offset: self.stack_top
+                    - (Symbol::get_type_size_in_bytes(variable_type) as isize),
             },
         )
     }
