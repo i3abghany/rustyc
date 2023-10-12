@@ -1,4 +1,4 @@
-use crate::tokens::*;
+use crate::lexical_analysis::tokens::*;
 
 pub struct Lexer {
     src: String,

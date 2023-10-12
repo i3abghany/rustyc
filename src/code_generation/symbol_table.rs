@@ -1,4 +1,3 @@
-use crate::symbol_table::Symbol::Variable;
 use std::cmp::min;
 use std::collections::HashMap;
 
@@ -22,7 +21,7 @@ impl Symbol {
 
     pub fn size(&self) -> usize {
         match self {
-            Variable { variable_type, .. } => Symbol::get_type_size_in_bytes(variable_type),
+            Symbol::Variable { variable_type, .. } => Symbol::get_type_size_in_bytes(variable_type),
             Symbol::Function { .. } => panic!(),
         }
     }
@@ -57,7 +56,7 @@ impl Scope {
     pub fn insert_top(&mut self, symbol_name: &str, variable_type: &str) {
         self.insert(
             symbol_name,
-            &Variable {
+            &Symbol::Variable {
                 variable_type: String::from(variable_type),
                 stack_offset: self.stack_top
                     - (Symbol::get_type_size_in_bytes(variable_type) as isize),

@@ -1,11 +1,6 @@
-mod ast;
-mod code_generator;
-mod lexer;
-mod parser;
-mod symbol_table;
-mod test_utils;
-mod tokens;
-mod x86_generator;
-
+mod code_generation;
+mod lexical_analysis;
+mod syntax_analysis;
+mod utils;
 
 fn main() {}

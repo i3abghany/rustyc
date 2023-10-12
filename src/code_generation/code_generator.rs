@@ -1,5 +1,5 @@
-use crate::ast::ASTNode::*;
-use crate::ast::*;
+use crate::syntax_analysis::ast::ASTNode::*;
+use crate::syntax_analysis::ast::*;
 pub trait CodeGenerator {
     fn generate(&mut self, root: &ASTNode) -> String {
         match root {
@@ -36,11 +36,11 @@ pub trait CodeGenerator {
 
 #[cfg(test)]
 mod tests {
-    use crate::code_generator::*;
-    use crate::lexer::Lexer;
-    use crate::parser::Parser;
-    use crate::test_utils::*;
-    use crate::x86_generator::X86CodeGenerator;
+    use crate::code_generation::code_generator::*;
+    use crate::code_generation::x86_generator::X86CodeGenerator;
+    use crate::lexical_analysis::lexer::Lexer;
+    use crate::syntax_analysis::parser::Parser;
+    use crate::utils::test_utils::*;
 
     fn generate_code(src: String) -> String {
         let tokens = Lexer::new(src).lex();

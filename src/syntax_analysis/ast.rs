@@ -1,4 +1,4 @@
-use crate::tokens::*;
+use crate::lexical_analysis::tokens::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
