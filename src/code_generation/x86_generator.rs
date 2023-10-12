@@ -1,8 +1,8 @@
-use crate::ast::ASTNode::*;
-use crate::ast::*;
-use crate::code_generator::*;
-use crate::symbol_table::{self, Symbol, SymbolTable};
-use crate::tokens::*;
+use crate::code_generation::code_generator::*;
+use crate::code_generation::symbol_table::{self, Symbol, SymbolTable};
+use crate::lexical_analysis::tokens::*;
+use crate::syntax_analysis::ast::ASTNode::*;
+use crate::syntax_analysis::ast::*;
 use uuid::Uuid;
 
 pub struct X86CodeGenerator {

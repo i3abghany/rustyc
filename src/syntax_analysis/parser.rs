@@ -1,6 +1,6 @@
-use crate::ast::ASTNode::*;
-use crate::ast::*;
-use crate::tokens::*;
+use crate::lexical_analysis::tokens::*;
+use crate::syntax_analysis::ast::ASTNode::*;
+use crate::syntax_analysis::ast::*;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -395,8 +395,8 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::ASTNode::*;
-    use crate::lexer::Lexer;
+    use crate::lexical_analysis::lexer::Lexer;
+    use crate::syntax_analysis::ast::ASTNode::*;
 
     #[rstest::rstest]
     #[case("int x = 55;", TranslationUnit(
