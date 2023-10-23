@@ -41,6 +41,14 @@ impl Lexer {
                     '!' => match_double_char_token!('=', TokenType::NotEquals),
                     '>' => match_double_char_token!('=', TokenType::GreaterThanEquals),
                     '<' => match_double_char_token!('=', TokenType::LessThanEquals),
+                    '/' => {
+                        if self.peek(1) == '/' {
+                            while self.current() != '\n' && self.current() != EOF {
+                                self.advance();
+                            }
+                            continue;
+                        }
+                    }
                     _ => {}
                 }
 
@@ -192,6 +200,15 @@ mod tests {
         assert_eq!(test_case, tokens[0].value);
         assert_eq!(expected_type, tokens[0].token_type);
         assert_eq!(TokenType::Eof, tokens[1].token_type);
+    }
+
+    #[rstest::rstest]
+    #[case("// This is a comment ending with EOF")]
+    #[case("// This is a comment ending with a new line\n")]
+    fn test_comment(#[case] test_case: String) {
+        let tokens = Lexer::new(test_case.clone()).lex();
+        assert_eq!(1, tokens.len());
+        assert_eq!(TokenType::Eof, tokens[0].token_type);
     }
 
     #[rstest::rstest]
