@@ -1,3 +1,3 @@
 pub mod code_generator;
-mod symbol_table;
-pub mod x86_generator;
+pub mod llvm;
+pub mod x86;

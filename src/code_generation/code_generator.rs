@@ -1,43 +1,13 @@
 use crate::syntax_analysis::ast::ASTNode::*;
 use crate::syntax_analysis::ast::*;
 pub trait CodeGenerator {
-    fn generate(&mut self, root: &ASTNode) -> String {
-        match root {
-            TranslationUnit(..) => self.generate_translation_unit(root),
-            ReturnStatement(..) => self.generate_return_statement(root),
-            VariableDeclaration(..) => self.generate_variable_declaration(root),
-            VariableDefinition(..) => self.generate_variable_definition(root),
-            FunctionDeclaration(..) => self.generate_function_declaration(root),
-            FunctionDefinition(..) => self.generate_function_definition(root),
-            ExpressionNode(expression) => self.generate_expression(expression),
-            Scope(..) => self.generate_scope(root),
-            If(..) => self.generate_if_statement(root),
-            While(..) => self.generate_while(root),
-            DoWhile(..) => self.generate_do_while(root),
-            ExpressionStatement(..) => self.generate_expression_statement(root),
-            For(..) => self.generate_for(root),
-        }
-    }
-
-    fn generate_translation_unit(&mut self, node: &ASTNode) -> String;
-    fn generate_return_statement(&mut self, node: &ASTNode) -> String;
-    fn generate_variable_declaration(&mut self, node: &ASTNode) -> String;
-    fn generate_variable_definition(&mut self, node: &ASTNode) -> String;
-    fn generate_function_declaration(&mut self, node: &ASTNode) -> String;
-    fn generate_function_definition(&mut self, node: &ASTNode) -> String;
-    fn generate_expression(&mut self, expression: &Expression) -> String;
-    fn generate_scope(&mut self, scope: &ASTNode) -> String;
-    fn generate_if_statement(&mut self, node: &ASTNode) -> String;
-    fn generate_while(&mut self, while_node: &ASTNode) -> String;
-    fn generate_do_while(&mut self, node: &ASTNode) -> String;
-    fn generate_expression_statement(&mut self, node: &ASTNode) -> String;
-    fn generate_for(&mut self, node: &ASTNode) -> String;
+    fn generate(&mut self, node: &ASTNode) -> String;
 }
 
 #[cfg(test)]
 mod tests {
     use crate::code_generation::code_generator::*;
-    use crate::code_generation::x86_generator::X86CodeGenerator;
+    use crate::code_generation::x86::generator;
     use crate::lexical_analysis::lexer::Lexer;
     use crate::syntax_analysis::parser::Parser;
     use crate::utils::test_utils::*;
@@ -45,7 +15,7 @@ mod tests {
     fn generate_code(src: String) -> String {
         let tokens = Lexer::new(src).lex();
         let ast = Parser::new(tokens).parse();
-        let mut generator = X86CodeGenerator::new();
+        let mut generator = generator::X86CodeGenerator::new();
         let generated = generator.generate(&ast);
         return generated;
     }
