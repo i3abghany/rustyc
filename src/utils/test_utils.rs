@@ -82,6 +82,7 @@ pub fn interpret_llvm_ir(ir: &str) -> i32 {
     ir_file.write_all(ir.as_bytes()).unwrap();
 
     let mut output = Command::new("lli")
+        .arg("-opaque-pointers")
         .arg(&ir_path)
         .output()
         .expect("Failed to compile generated code");
