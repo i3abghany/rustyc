@@ -17,6 +17,8 @@ pub struct LLVMGenerator<'ctx> {
     builder: Builder<'ctx>,
     module: Module<'ctx>,
     symbol_table: SymbolTable<'ctx>,
+    current_function: Option<FunctionValue<'ctx>>, // The function currently being generated
+    counter: i32,                                  // For naming labels of blocks
 }
 
 impl<'ctx> LLVMGenerator<'ctx> {
@@ -30,6 +32,8 @@ impl<'ctx> LLVMGenerator<'ctx> {
             builder,
             module,
             symbol_table,
+            current_function: None,
+            counter: 0,
         }
     }
 }
@@ -51,8 +55,8 @@ impl<'ctx> LLVMGenerator<'ctx> {
             FunctionDeclaration(..) => self.generate_function_declaration(node).as_any_value_enum(),
             FunctionDefinition(..) => self.generate_function_definition(node).as_any_value_enum(),
             ExpressionNode(expression) => self.generate_expression(expression).as_any_value_enum(),
-            // Scope(..) => self.generate_scope(node),
-            // If(..) => self.generate_if_statement(node),
+            Scope(..) => self.generate_scope(node).as_any_value_enum(),
+            If(..) => self.generate_if_statement(node).as_any_value_enum(),
             // While(..) => self.generate_while(node),
             // DoWhile(..) => self.generate_do_while(node),
             // ExpressionStatement(..) => self.generate_expression_statement(node),
@@ -280,7 +284,6 @@ impl<'ctx> LLVMGenerator<'ctx> {
                         ),
                     }
                 }
-                // TODO add the function to the symbol table.
                 function
             }
             _ => panic!(
@@ -298,6 +301,8 @@ impl<'ctx> LLVMGenerator<'ctx> {
                     name.clone(),
                     params.clone(),
                 ));
+
+                self.current_function = Some(declaration);
 
                 self.symbol_table.push_scope();
 
@@ -422,13 +427,84 @@ impl<'ctx> LLVMGenerator<'ctx> {
             _ => panic!(),
         }
     }
+    fn generate_scope(&mut self, node: &ASTNode) -> IntValue<'ctx> {
+        self.symbol_table.push_scope();
 
-    fn generate_scope(&mut self, scope: &ASTNode) -> String {
-        todo!()
+        let statements = match node {
+            Scope(statements) => statements,
+            _ => panic!(
+                "Internal error: expected translation unit, found: {:?}",
+                node
+            ),
+        };
+
+        for statement in statements {
+            self.generate(statement);
+        }
+
+        self.symbol_table.pop_scope();
+
+        self.context.i32_type().const_int(0, false)
     }
 
-    fn generate_if_statement(&mut self, node: &ASTNode) -> String {
-        todo!()
+    fn generate_if_statement(&mut self, node: &ASTNode) -> IntValue<'ctx> {
+        let (condition_node, then_node, else_node) = match node {
+            If(_, condition_node, then_node, else_node) => (condition_node, then_node, else_node),
+            _ => panic!(),
+        };
+
+        let counter = self.counter;
+
+        let then_block = self
+            .context
+            .append_basic_block(self.current_function.unwrap(), &format!("then_{counter}"));
+        let end_block = self
+            .context
+            .append_basic_block(self.current_function.unwrap(), &format!("if_end_{counter}"));
+        let else_block = if else_node.is_some() {
+            self.context
+                .append_basic_block(self.current_function.unwrap(), &format!("else_{counter}"))
+        } else {
+            end_block
+        };
+
+        self.counter += 1;
+
+        let condition = match condition_node.as_ref() {
+            ASTNode::ExpressionNode(expression) => expression,
+            _ => panic!(),
+        };
+
+        let cond_result = self.generate_expression(condition);
+
+        let zero = self.context.i32_type().const_int(0, false);
+        let bool_value = self
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::NE,
+                cond_result.into_int_value(),
+                zero,
+                "bool_value",
+            )
+            .unwrap();
+        self.builder
+            .build_conditional_branch(bool_value, then_block, else_block)
+            .unwrap();
+
+        self.builder.position_at_end(then_block);
+
+        self.generate(then_node);
+        self.builder.build_unconditional_branch(end_block).unwrap();
+
+        if else_node.is_some() {
+            self.builder.position_at_end(else_block);
+            self.generate(else_node.as_ref().unwrap());
+            self.builder.build_unconditional_branch(end_block).unwrap();
+        }
+
+        self.builder.position_at_end(end_block);
+
+        zero
     }
 
     fn generate_while(&mut self, while_node: &ASTNode) -> String {
@@ -473,8 +549,8 @@ mod tests {
             let exit_code = interpret_llvm_ir(&generated_ir);
             assert_eq!(
                 test_case.expected, exit_code,
-                "Test case: {} -- Expected: {}, found: {}",
-                test_case.name, test_case.expected, exit_code
+                "Test case: {} -- Expected: {}, found: {}\nGenerated IR:\n{}",
+                test_case.name, test_case.expected, exit_code, generated_ir
             );
         }
     }
@@ -488,5 +564,10 @@ mod tests {
     #[should_panic]
     fn test_erroneous_variable_declarations_and_definitions() {
         run_tests_from_file("./src/tests/variables_error.c");
+    }
+
+    #[test]
+    fn test_basic_if() {
+        run_tests_from_file("./src/tests/if.c");
     }
 }
