@@ -19,9 +19,10 @@ int main() {
 // RETURNS 5
 
 int main() {
-    if (0)
+    int x = 5;
+    if (x < 3)
         return 6;
-    else if (1)
+    else if (x >= 5)
         return 5;
     return 7;
 }
@@ -30,12 +31,13 @@ int main() {
 // RETURNS 11
 
 int main() {
-    if (0)
+    int y = 54;
+    if (y < 22)
         return 6;
-    else if (1) {
-        if (0)
+    else if (y > 20) {
+        if (y < 30)
             return 15;
-        else if (1) {
+        else if (y > 30) {
             return 11;
         } else {
             return 17;
