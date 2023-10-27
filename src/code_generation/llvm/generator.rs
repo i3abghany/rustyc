@@ -391,8 +391,24 @@ impl<'ctx> LLVMGenerator<'ctx> {
         match expression {
             Expression::IntegerLiteral { .. } => self.generate_integer_literal(expression),
             Expression::Variable(name) => self.generate_variable_expression(name),
+            Expression::Binary(op, lhs, rhs) => self.generate_binary_expression(op, lhs, rhs),
             _ => todo!(),
         }
+    }
+
+    fn generate_binary_expression(&mut self, token: &Token, lhs: &Expression, rhs: &Expression) -> BasicValueEnum<'ctx> {
+        let lhs = self.generate_expression(lhs).into_int_value();
+        let rhs = self.generate_expression(rhs).into_int_value();
+        // TODO implement the rest of the binary expressions
+        match token.token_type {
+            TokenType::EqualsEquals => self.builder.build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, "bool_value"),
+            TokenType::NotEquals => self.builder.build_int_compare(inkwell::IntPredicate::NE, lhs, rhs, "bool_value"),
+            TokenType::GreaterThan => self.builder.build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "bool_value"),
+            TokenType::GreaterThanEquals => self.builder.build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "bool_value"),
+            TokenType::LessThan => self.builder.build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "bool_value"),
+            TokenType::LessThanEquals => self.builder.build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, "bool_value"),
+            _ => panic!()
+        }.unwrap().as_basic_value_enum()
     }
 
     fn generate_variable_expression(&mut self, name: &Token) -> BasicValueEnum<'ctx> {
@@ -478,11 +494,12 @@ impl<'ctx> LLVMGenerator<'ctx> {
         let cond_result = self.generate_expression(condition);
 
         let zero = self.context.i32_type().const_int(0, false);
+        let i32_value = self.builder.build_int_z_extend(cond_result.into_int_value(), self.context.i32_type(), "extended_condition").unwrap();
         let bool_value = self
             .builder
             .build_int_compare(
                 inkwell::IntPredicate::NE,
-                cond_result.into_int_value(),
+                i32_value,
                 zero,
                 "bool_value",
             )
