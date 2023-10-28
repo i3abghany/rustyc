@@ -1,9 +1,12 @@
 use crate::lexical_analysis::tokens::*;
 use crate::syntax_analysis::ast::ASTNode::*;
 use crate::syntax_analysis::ast::*;
+use crate::utils::test_utils::interpret_llvm_ir;
+use std::panic::panic_any;
 
 pub struct Parser {
     tokens: Vec<Token>,
+    terminator_stack: Vec<TokenType>,
     pos: usize,
 }
 
@@ -31,7 +34,11 @@ fn is_unary_operator(token_type: &TokenType) -> bool {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            terminator_stack: vec![],
+        }
     }
 
     pub fn parse_unit(&mut self) -> ASTNode {
@@ -57,6 +64,7 @@ impl Parser {
 
     fn parse_scope(&mut self) -> ASTNode {
         let mut result = Vec::new();
+        self.push_terminator(TokenType::CloseCurly);
         self.try_consume(TokenType::OpenCurly);
         while self.current().token_type != TokenType::CloseCurly
             && self.current().token_type != TokenType::Eof
@@ -64,6 +72,7 @@ impl Parser {
             result.push(self.parse_unit());
         }
         self.try_consume(TokenType::CloseCurly);
+        self.pop_terminator(TokenType::CloseCurly);
         Scope(result)
     }
 
@@ -106,7 +115,10 @@ impl Parser {
             if next.token_type == TokenType::Equals {
                 return true;
             }
-            if next.token_type == TokenType::SemiColon || next.token_type == TokenType::Eof {
+            if next.token_type == TokenType::SemiColon
+                || next.token_type == TokenType::Eof
+                || self.is_next_terminator(&next.token_type)
+            {
                 break;
             }
             i += 1;
@@ -141,6 +153,7 @@ impl Parser {
 
     fn parse_for(&mut self) -> ASTNode {
         let for_token = self.try_consume(TokenType::For);
+        self.push_terminator(TokenType::CloseParen);
         self.try_consume(TokenType::OpenParen);
 
         let init = self.parse_statement();
@@ -152,6 +165,7 @@ impl Parser {
         }
 
         self.try_consume(TokenType::CloseParen);
+        self.pop_terminator(TokenType::CloseParen);
 
         let body = self.parse_scope_or_single_statement();
 
@@ -223,6 +237,9 @@ impl Parser {
     }
 
     fn parse_expression_internal(&mut self, parent_precedence: u8) -> Expression {
+        if self.is_assignment() {
+            return self.parse_assignment_expression();
+        }
         if is_unary_operator(&self.current().token_type) {
             return Expression::Unary(self.consume().clone(), Box::new(self.parse_expression()));
         }
@@ -245,14 +262,17 @@ impl Parser {
 
     fn parse_parenthesized_expression(&mut self) -> Expression {
         self.try_consume(TokenType::OpenParen);
+        self.push_terminator(TokenType::CloseParen);
         let expr = self.parse_expression();
         self.try_consume(TokenType::CloseParen);
+        self.pop_terminator(TokenType::CloseParen);
         expr
     }
 
     fn parse_function_arguments(&mut self) -> Vec<Expression> {
         let mut result = Vec::new();
         self.try_consume(TokenType::OpenParen);
+        self.push_terminator(TokenType::CloseParen);
         while self.current().token_type != TokenType::CloseParen
             && self.current().token_type != TokenType::Eof
         {
@@ -262,7 +282,22 @@ impl Parser {
             }
         }
         self.try_consume(TokenType::CloseParen);
+        self.pop_terminator(TokenType::CloseParen);
         result
+    }
+
+    fn push_terminator(&mut self, terminator: TokenType) {
+        self.terminator_stack.push(terminator);
+    }
+
+    fn pop_terminator(&mut self, terminator: TokenType) {
+        if self.terminator_stack.pop().unwrap() != terminator {
+            panic!();
+        }
+    }
+
+    fn is_next_terminator(&self, token_type: &TokenType) -> bool {
+        !self.terminator_stack.is_empty() && token_type == self.terminator_stack.last().unwrap()
     }
 
     fn parse_function_call(&mut self) -> Expression {
@@ -288,14 +323,15 @@ impl Parser {
         }
     }
 
-    fn parse_assignment_no_semicolon(&mut self) -> ASTNode {
+    fn parse_assignment_expression(&mut self) -> Expression {
         let identifier_token = self.try_consume(TokenType::Identifier);
         self.try_consume(TokenType::Equals);
         let expression = self.parse_expression();
-        ASTNode::ExpressionStatement(Expression::Assignment(
-            identifier_token,
-            Box::new(expression),
-        ))
+        Expression::Assignment(identifier_token, Box::new(expression))
+    }
+
+    fn parse_assignment_no_semicolon(&mut self) -> ASTNode {
+        ASTNode::ExpressionStatement(self.parse_assignment_expression())
     }
     fn parse_assignment(&mut self) -> ASTNode {
         let assignment_expression = self.parse_assignment_no_semicolon();
@@ -519,6 +555,7 @@ mod tests {
     fn test_parse_binary_expression(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
+        println!("{:#?}", result);
         assert_eq!(expected, result);
     }
 
