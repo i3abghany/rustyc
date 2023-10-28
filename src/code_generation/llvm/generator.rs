@@ -59,7 +59,7 @@ impl<'ctx> LLVMGenerator<'ctx> {
             If(..) => self.generate_if_statement(node).as_any_value_enum(),
             // While(..) => self.generate_while(node),
             // DoWhile(..) => self.generate_do_while(node),
-            // ExpressionStatement(..) => self.generate_expression_statement(node),
+            ExpressionStatement(..) => self.generate_expression_statement(node).as_any_value_enum(),
             // For(..) => self.generate_for(node),
             _ => panic!(),
         }
@@ -392,11 +392,41 @@ impl<'ctx> LLVMGenerator<'ctx> {
             Expression::IntegerLiteral { .. } => self.generate_integer_literal(expression),
             Expression::Variable(name) => self.generate_variable_expression(name),
             Expression::Binary(op, lhs, rhs) => self.generate_binary_expression(op, lhs, rhs),
+            Expression::Assignment(lhs, rhs) => self.generate_assignment(lhs, rhs),
             _ => todo!(),
         }
     }
 
-    fn generate_binary_expression(&mut self, token: &Token, lhs: &Expression, rhs: &Expression) -> BasicValueEnum<'ctx> {
+    fn generate_assignment(&mut self, lhs: &Token, rhs: &Expression) -> BasicValueEnum<'ctx> {
+        if self.is_in_global_scope() {
+            panic!("Assignment to variable {} not allowed in global scope", lhs.value);
+        }
+        if self.symbol_table.find_hierarchically(&lhs.value).is_none() {
+            panic!("Reference to undefined variable `{}`", lhs.value);
+        }
+
+        let rhs = self.generate_expression(&rhs);
+
+        // FIXME make sure that assignments to global variables are correct
+        self.builder
+            .build_store(
+                self.symbol_table
+                    .find_hierarchically(&lhs.value)
+                    .unwrap()
+                    .pointer,
+                rhs,
+            )
+            .unwrap();
+
+        rhs.clone()
+    }
+
+    fn generate_binary_expression(
+        &mut self,
+        token: &Token,
+        lhs: &Expression,
+        rhs: &Expression,
+    ) -> BasicValueEnum<'ctx> {
         let lhs = self.generate_expression(lhs).into_int_value();
         let rhs = self.generate_expression(rhs).into_int_value();
         // TODO implement the rest of the binary expressions
@@ -524,16 +554,76 @@ impl<'ctx> LLVMGenerator<'ctx> {
         zero
     }
 
-    fn generate_while(&mut self, while_node: &ASTNode) -> String {
-        todo!()
+    fn generate_while(&mut self, node: &ASTNode) -> IntValue<'ctx> {
+        let counter = self.counter;
+        let cond_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("while_condition_{counter}"),
+        );
+        let body_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("while_body_{counter}"),
+        );
+        let end_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("while_end_{counter}"),
+        );
+
+        self.counter += 1;
+
+        self.builder.build_unconditional_branch(cond_block).unwrap();
+
+        self.builder.position_at_end(cond_block);
+
+        let (condition_node, body_node) = match node {
+            While(_, condition_node, body_node) => (condition_node, body_node),
+            _ => panic!(),
+        };
+
+        let condition = match condition_node.as_ref() {
+            ASTNode::ExpressionNode(expression) => expression,
+            _ => panic!(),
+        };
+
+        let cond_result = self.generate_expression(condition);
+        let i32_value = self
+            .builder
+            .build_int_z_extend(
+                cond_result.into_int_value(),
+                self.context.i32_type(),
+                "extended_condition",
+            )
+            .unwrap();
+        let zero = self.context.i32_type().const_int(0, false);
+        let bool_value = self
+            .builder
+            .build_int_compare(inkwell::IntPredicate::NE, i32_value, zero, "bool_value")
+            .unwrap();
+
+        self.builder
+            .build_conditional_branch(bool_value, body_block, end_block)
+            .unwrap();
+
+        self.builder.position_at_end(body_block);
+
+        self.generate(body_node);
+        self.builder.build_unconditional_branch(cond_block).unwrap();
+
+        self.builder.position_at_end(end_block);
+
+        self.context.i32_type().const_int(0, false)
     }
 
     fn generate_do_while(&mut self, node: &ASTNode) -> String {
         todo!()
     }
 
-    fn generate_expression_statement(&mut self, node: &ASTNode) -> String {
-        todo!()
+    fn generate_expression_statement(&mut self, node: &ASTNode) -> BasicValueEnum<'ctx> {
+        let expression = match node {
+            ExpressionStatement(expression) => expression,
+            _ => panic!(),
+        };
+        return self.generate_expression(expression);
     }
 
     fn generate_for(&mut self, node: &ASTNode) -> String {
@@ -586,5 +676,10 @@ mod tests {
     #[test]
     fn test_basic_if() {
         run_tests_from_file("./src/tests/if.c");
+    }
+
+    #[test]
+    fn test_assignment() {
+        run_tests_from_file("./src/tests/assignment.c");
     }
 }
