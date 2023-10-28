@@ -57,7 +57,7 @@ impl<'ctx> LLVMGenerator<'ctx> {
             ExpressionNode(expression) => self.generate_expression(expression).as_any_value_enum(),
             Scope(..) => self.generate_scope(node).as_any_value_enum(),
             If(..) => self.generate_if_statement(node).as_any_value_enum(),
-            // While(..) => self.generate_while(node),
+            While(..) => self.generate_while(node).as_any_value_enum(),
             // DoWhile(..) => self.generate_do_while(node),
             ExpressionStatement(..) => self.generate_expression_statement(node).as_any_value_enum(),
             // For(..) => self.generate_for(node),
@@ -565,15 +565,17 @@ impl<'ctx> LLVMGenerator<'ctx> {
         let cond_result = self.generate_expression(condition);
 
         let zero = self.context.i32_type().const_int(0, false);
-        let i32_value = self.builder.build_int_z_extend(cond_result.into_int_value(), self.context.i32_type(), "extended_condition").unwrap();
+        let i32_value = self
+            .builder
+            .build_int_z_extend(
+                cond_result.into_int_value(),
+                self.context.i32_type(),
+                "extended_condition",
+            )
+            .unwrap();
         let bool_value = self
             .builder
-            .build_int_compare(
-                inkwell::IntPredicate::NE,
-                i32_value,
-                zero,
-                "bool_value",
-            )
+            .build_int_compare(inkwell::IntPredicate::NE, i32_value, zero, "bool_value")
             .unwrap();
         self.builder
             .build_conditional_branch(bool_value, then_block, else_block)
@@ -717,6 +719,11 @@ mod tests {
     #[test]
     fn test_basic_if() {
         run_tests_from_file("./src/tests/if.c");
+    }
+
+    #[test]
+    fn test_while() {
+        run_tests_from_file("./src/tests/while.c");
     }
 
     #[test]
