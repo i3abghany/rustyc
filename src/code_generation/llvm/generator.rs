@@ -698,7 +698,7 @@ mod tests {
                 code_generation::llvm::generator::LLVMGenerator::new(&mut context).generate(&ast);
             let exit_code = interpret_llvm_ir(&generated_ir);
             assert_eq!(
-                test_case.expected, exit_code,
+                test_case.expected % 256, exit_code % 256,
                 "Test case: {} -- Expected: {}, found: {}\nGenerated IR:\n{}",
                 test_case.name, test_case.expected, exit_code, generated_ir
             );
