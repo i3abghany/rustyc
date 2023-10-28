@@ -49,6 +49,14 @@ impl<'ctx> SymbolTable<'ctx> {
         None
     }
 
+    pub fn find_hierarchically(&self, name: &str) -> Option<&Variable<'ctx>> {
+        let mut result = self.find(&name);
+        if result.is_none() {
+            result = self.find_in_global_scope(&name);
+        }
+        result
+    }
+
     pub fn find_in_current_scope(&self, name: &str) -> Option<&Variable<'ctx>> {
         if let Some(scope) = self.scopes.last() {
             return scope.get(name);

@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 // CASE Basic assignment
 // RETURNS 30
 
@@ -27,5 +25,3 @@ int main() {
     x = 6;
     return x;
 }
-
->>>>>>> Stashed changes
