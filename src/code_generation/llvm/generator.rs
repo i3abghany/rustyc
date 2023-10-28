@@ -431,14 +431,55 @@ impl<'ctx> LLVMGenerator<'ctx> {
         let rhs = self.generate_expression(rhs).into_int_value();
         // TODO implement the rest of the binary expressions
         match token.token_type {
-            TokenType::EqualsEquals => self.builder.build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, "bool_value"),
-            TokenType::NotEquals => self.builder.build_int_compare(inkwell::IntPredicate::NE, lhs, rhs, "bool_value"),
-            TokenType::GreaterThan => self.builder.build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "bool_value"),
-            TokenType::GreaterThanEquals => self.builder.build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "bool_value"),
-            TokenType::LessThan => self.builder.build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "bool_value"),
-            TokenType::LessThanEquals => self.builder.build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, "bool_value"),
-            _ => panic!()
-        }.unwrap().as_basic_value_enum()
+            TokenType::EqualsEquals => {
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, "bool_value")
+            }
+            TokenType::NotEquals => {
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::NE, lhs, rhs, "bool_value")
+            }
+            TokenType::GreaterThan => {
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::SGT, lhs, rhs, "bool_value")
+            }
+            TokenType::GreaterThanEquals => {
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::SGE, lhs, rhs, "bool_value")
+            }
+            TokenType::LessThan => {
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "bool_value")
+            }
+            TokenType::LessThanEquals => {
+                self.builder
+                    .build_int_compare(inkwell::IntPredicate::SLE, lhs, rhs, "bool_value")
+            }
+            TokenType::Plus => self.builder.build_int_add(lhs, rhs, "temp_add"),
+            TokenType::Minus => self.builder.build_int_sub(lhs, rhs, "temp_sub"),
+            TokenType::Star => self.builder.build_int_mul(lhs, rhs, "temp_mul"),
+            TokenType::Slash => self.builder.build_int_signed_div(lhs, rhs, "temp_div"),
+            TokenType::And => self.builder.build_and(lhs, rhs, "temp_and"),
+            TokenType::Bar => self.builder.build_or(lhs, rhs, "temp_or"),
+            TokenType::AndAnd | TokenType::BarBar => {
+                let lhs = self
+                    .builder
+                    .build_int_cast(lhs, self.context.bool_type(), "bool_lhs")
+                    .unwrap();
+                let rhs = self
+                    .builder
+                    .build_int_cast(rhs, self.context.bool_type(), "bool_rhs")
+                    .unwrap();
+                if token.token_type == TokenType::AndAnd {
+                    self.builder.build_and(lhs, rhs, "temp_logical_and")
+                } else {
+                    self.builder.build_or(lhs, rhs, "temp_logical_or")
+                }
+            }
+            _ => panic!(),
+        }
+        .unwrap()
+        .as_basic_value_enum()
     }
 
     fn generate_variable_expression(&mut self, name: &Token) -> BasicValueEnum<'ctx> {
