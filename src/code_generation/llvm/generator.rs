@@ -58,7 +58,7 @@ impl<'ctx> LLVMGenerator<'ctx> {
             Scope(..) => self.generate_scope(node).as_any_value_enum(),
             If(..) => self.generate_if_statement(node).as_any_value_enum(),
             While(..) => self.generate_while(node).as_any_value_enum(),
-            // DoWhile(..) => self.generate_do_while(node),
+            DoWhile(..) => self.generate_do_while(node).as_any_value_enum(),
             ExpressionStatement(..) => self.generate_expression_statement(node).as_any_value_enum(),
             // For(..) => self.generate_for(node),
             _ => panic!(),
@@ -623,11 +623,43 @@ impl<'ctx> LLVMGenerator<'ctx> {
             _ => panic!(),
         };
 
-        let condition = match condition_node.as_ref() {
-            ASTNode::ExpressionNode(expression) => expression,
+        self.while_loop_common(condition_node, body_node, &cond_block, &body_block, &end_block)
+    }
+
+    fn generate_do_while(&mut self, node: &ASTNode) -> IntValue<'ctx> {
+        let counter = self.counter;
+        let cond_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("do_while_condition_{counter}"),
+        );
+        let body_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("do_while_body_{counter}"),
+        );
+        let end_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("do_while_end_{counter}"),
+        );
+
+        self.counter += 1;
+
+        self.builder.build_unconditional_branch(body_block).unwrap();
+
+        self.builder.position_at_end(cond_block);
+
+        let (condition_node, body_node) = match node {
+            DoWhile(_, body_node, _, condition_node) => (condition_node, body_node),
             _ => panic!(),
         };
 
+        self.while_loop_common(condition_node, body_node, &cond_block, &body_block, &end_block)
+    }
+
+    fn while_loop_common(&mut self, condition_node: &ASTNode, body_node: &ASTNode, cond_block: &BasicBlock, body_block: &BasicBlock, end_block: &BasicBlock) -> IntValue<'ctx> {
+        let condition = match condition_node {
+            ASTNode::ExpressionNode(expression) => expression,
+            _ => panic!(),
+        };
         let cond_result = self.generate_expression(condition);
         let i32_value = self
             .builder
@@ -644,21 +676,17 @@ impl<'ctx> LLVMGenerator<'ctx> {
             .unwrap();
 
         self.builder
-            .build_conditional_branch(bool_value, body_block, end_block)
+            .build_conditional_branch(bool_value, *body_block, *end_block)
             .unwrap();
 
-        self.builder.position_at_end(body_block);
+        self.builder.position_at_end(*body_block);
 
         self.generate(body_node);
-        self.builder.build_unconditional_branch(cond_block).unwrap();
+        self.builder.build_unconditional_branch(*cond_block).unwrap();
 
-        self.builder.position_at_end(end_block);
+        self.builder.position_at_end(*end_block);
 
         self.context.i32_type().const_int(0, false)
-    }
-
-    fn generate_do_while(&mut self, node: &ASTNode) -> String {
-        todo!()
     }
 
     fn generate_expression_statement(&mut self, node: &ASTNode) -> BasicValueEnum<'ctx> {
@@ -717,6 +745,11 @@ mod tests {
     }
 
     #[test]
+    fn test_assignment() {
+        run_tests_from_file("./src/tests/assignment.c");
+    }
+
+    #[test]
     fn test_basic_if() {
         run_tests_from_file("./src/tests/if.c");
     }
@@ -727,7 +760,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment() {
-        run_tests_from_file("./src/tests/assignment.c");
+    fn test_do_while() {
+        run_tests_from_file("./src/tests/do_while.c");
     }
 }
