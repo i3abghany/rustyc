@@ -60,7 +60,7 @@ impl<'ctx> LLVMGenerator<'ctx> {
             While(..) => self.generate_while(node).as_any_value_enum(),
             DoWhile(..) => self.generate_do_while(node).as_any_value_enum(),
             ExpressionStatement(..) => self.generate_expression_statement(node).as_any_value_enum(),
-            // For(..) => self.generate_for(node),
+            For(..) => self.generate_for(node).as_any_value_enum(),
             _ => panic!(),
         }
     }
@@ -697,8 +697,64 @@ impl<'ctx> LLVMGenerator<'ctx> {
         return self.generate_expression(expression);
     }
 
-    fn generate_for(&mut self, node: &ASTNode) -> String {
-        todo!()
+    fn generate_for(&mut self, node: &ASTNode) -> IntValue<'ctx> {
+        let counter = self.counter;
+        let cond_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("for_condition_{counter}"),
+        );
+        let body_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("for_body_{counter}"),
+        );
+        let end_block = self.context.append_basic_block(
+            self.current_function.unwrap(),
+            &format!("for_end_{counter}"),
+        );
+
+        self.counter += 1;
+
+        let (init_node, cond_node, update_node, body_node) = match node {
+            For(_, [init_node, cond_node, update_node], body_node) => (init_node, cond_node, update_node, body_node),
+            _ => panic!(),
+        };
+
+        self.generate_internal(init_node);
+
+        self.builder.build_unconditional_branch(cond_block).unwrap();
+
+        self.builder.position_at_end(cond_block);
+
+        let condition = match cond_node.as_ref() {
+            ASTNode::ExpressionStatement(expression) => expression,
+            _ => panic!(),
+        };
+        let cond_result = self.generate_expression(condition);
+        let i32_value = self
+            .builder
+            .build_int_z_extend(
+                cond_result.into_int_value(),
+                self.context.i32_type(),
+                "extended_condition",
+            )
+            .unwrap();
+        let zero = self.context.i32_type().const_int(0, false);
+        let bool_value = self
+            .builder
+            .build_int_compare(inkwell::IntPredicate::NE, i32_value, zero, "bool_value")
+            .unwrap();
+        self.builder.build_conditional_branch(bool_value, body_block, end_block).unwrap();
+
+        self.builder.position_at_end(body_block);
+        self.generate_internal(body_node);
+
+        self.generate_internal(update_node);
+
+        self.builder.build_unconditional_branch(cond_block).unwrap();
+
+        self.builder.position_at_end(end_block);
+
+        self.context.i32_type().const_int(0, false)
     }
 
     fn get_llvm_type_from_string(&self, type_str: &str) -> BasicTypeEnum<'ctx> {
@@ -762,5 +818,10 @@ mod tests {
     #[test]
     fn test_do_while() {
         run_tests_from_file("./src/tests/do_while.c");
+    }
+
+    #[test]
+    fn test_for() {
+        run_tests_from_file("./src/tests/for.c");
     }
 }
