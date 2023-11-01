@@ -398,8 +398,34 @@ impl<'ctx> LLVMGenerator<'ctx> {
                 self.generate_unary_expression(operator, operand)
             }
             Expression::Assignment(lhs, rhs) => self.generate_assignment(lhs, rhs),
-            _ => todo!(),
+            Expression::Parenthesized(expression) => self.generate_expression(expression),
+            Expression::FunctionCall(func_name, args) => {
+                self.generate_function_call(&func_name.value, args)
+            }
+            Expression::Empty => self
+                .context
+                .i32_type()
+                .const_int(0, false)
+                .as_basic_value_enum(),
         }
+    }
+
+    fn generate_function_call(
+        &mut self,
+        name: &str,
+        args: &Vec<Expression>,
+    ) -> BasicValueEnum<'ctx> {
+        let function = self.module.get_function(name).unwrap();
+        let mut arguments = Vec::new();
+        for arg in args {
+            arguments.push(self.generate_expression(arg).into());
+        }
+        self.builder
+            .build_call(function, &arguments, "call")
+            .unwrap()
+            .try_as_basic_value()
+            .left()
+            .unwrap()
     }
 
     fn generate_unary_expression(
@@ -834,16 +860,28 @@ mod tests {
             let ast = syntax_analysis::parser::Parser::new(tokens).parse();
             let generated_ir =
                 code_generation::llvm::generator::LLVMGenerator::new(&mut context).generate(&ast);
-            let exit_code = interpret_llvm_ir(&generated_ir);
-            assert_eq!(
-                test_case.expected % 256,
-                exit_code % 256,
-                "Test case: {} -- Expected: {}, found: {}\nGenerated IR:\n{}",
-                test_case.name,
-                test_case.expected,
-                exit_code,
-                generated_ir
-            );
+            let (exit_code, stdout_str) = interpret_llvm_ir(&generated_ir);
+            if test_case.expected_exit_code.is_some() {
+                let expected_exit_code = test_case.expected_exit_code.unwrap();
+                assert_eq!(
+                    (expected_exit_code + 256) % 256,
+                    (exit_code + 256) % 256,
+                    "Test case: {} -- Expected exit code: {}, found: {}\nGenerated IR:\n{}",
+                    test_case.name,
+                    expected_exit_code,
+                    exit_code,
+                    generated_ir
+                );
+            }
+
+            if test_case.expected_output.is_some() {
+                let expected_output = test_case.expected_output.unwrap();
+                assert_eq!(
+                    expected_output, stdout_str,
+                    "Test case: {} -- Expected stdout: {}, found: {}\nGenerated IR:\n{}",
+                    test_case.name, expected_output, stdout_str, generated_ir
+                );
+            }
         }
     }
 
@@ -886,5 +924,10 @@ mod tests {
     #[test]
     fn test_for() {
         run_tests_from_file("./src/tests/for.c");
+    }
+
+    #[test]
+    fn test_function_calls() {
+        run_tests_from_file("./src/tests/function_calls.c");
     }
 }
