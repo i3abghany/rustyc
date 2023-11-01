@@ -399,7 +399,10 @@ impl<'ctx> LLVMGenerator<'ctx> {
 
     fn generate_assignment(&mut self, lhs: &Token, rhs: &Expression) -> BasicValueEnum<'ctx> {
         if self.is_in_global_scope() {
-            panic!("Assignment to variable {} not allowed in global scope", lhs.value);
+            panic!(
+                "Assignment to variable {} not allowed in global scope",
+                lhs.value
+            );
         }
         if self.symbol_table.find_hierarchically(&lhs.value).is_none() {
             panic!("Reference to undefined variable `{}`", lhs.value);
@@ -407,7 +410,6 @@ impl<'ctx> LLVMGenerator<'ctx> {
 
         let rhs = self.generate_expression(&rhs);
 
-        // FIXME make sure that assignments to global variables are correct
         self.builder
             .build_store(
                 self.symbol_table
@@ -429,7 +431,6 @@ impl<'ctx> LLVMGenerator<'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let lhs = self.generate_expression(lhs).into_int_value();
         let rhs = self.generate_expression(rhs).into_int_value();
-        // TODO implement the rest of the binary expressions
         match token.token_type {
             TokenType::EqualsEquals => {
                 self.builder
@@ -461,6 +462,7 @@ impl<'ctx> LLVMGenerator<'ctx> {
             TokenType::Slash => self.builder.build_int_signed_div(lhs, rhs, "temp_div"),
             TokenType::And => self.builder.build_and(lhs, rhs, "temp_and"),
             TokenType::Bar => self.builder.build_or(lhs, rhs, "temp_or"),
+            TokenType::Caret => self.builder.build_xor(lhs, rhs, "temp_xor"),
             TokenType::AndAnd | TokenType::BarBar => {
                 let lhs = self
                     .builder
@@ -623,7 +625,13 @@ impl<'ctx> LLVMGenerator<'ctx> {
             _ => panic!(),
         };
 
-        self.while_loop_common(condition_node, body_node, &cond_block, &body_block, &end_block)
+        self.while_loop_common(
+            condition_node,
+            body_node,
+            &cond_block,
+            &body_block,
+            &end_block,
+        )
     }
 
     fn generate_do_while(&mut self, node: &ASTNode) -> IntValue<'ctx> {
@@ -652,10 +660,23 @@ impl<'ctx> LLVMGenerator<'ctx> {
             _ => panic!(),
         };
 
-        self.while_loop_common(condition_node, body_node, &cond_block, &body_block, &end_block)
+        self.while_loop_common(
+            condition_node,
+            body_node,
+            &cond_block,
+            &body_block,
+            &end_block,
+        )
     }
 
-    fn while_loop_common(&mut self, condition_node: &ASTNode, body_node: &ASTNode, cond_block: &BasicBlock, body_block: &BasicBlock, end_block: &BasicBlock) -> IntValue<'ctx> {
+    fn while_loop_common(
+        &mut self,
+        condition_node: &ASTNode,
+        body_node: &ASTNode,
+        cond_block: &BasicBlock,
+        body_block: &BasicBlock,
+        end_block: &BasicBlock,
+    ) -> IntValue<'ctx> {
         let condition = match condition_node {
             ASTNode::ExpressionNode(expression) => expression,
             _ => panic!(),
@@ -682,7 +703,9 @@ impl<'ctx> LLVMGenerator<'ctx> {
         self.builder.position_at_end(*body_block);
 
         self.generate(body_node);
-        self.builder.build_unconditional_branch(*cond_block).unwrap();
+        self.builder
+            .build_unconditional_branch(*cond_block)
+            .unwrap();
 
         self.builder.position_at_end(*end_block);
 
@@ -715,7 +738,9 @@ impl<'ctx> LLVMGenerator<'ctx> {
         self.counter += 1;
 
         let (init_node, cond_node, update_node, body_node) = match node {
-            For(_, [init_node, cond_node, update_node], body_node) => (init_node, cond_node, update_node, body_node),
+            For(_, [init_node, cond_node, update_node], body_node) => {
+                (init_node, cond_node, update_node, body_node)
+            }
             _ => panic!(),
         };
 
@@ -743,7 +768,9 @@ impl<'ctx> LLVMGenerator<'ctx> {
             .builder
             .build_int_compare(inkwell::IntPredicate::NE, i32_value, zero, "bool_value")
             .unwrap();
-        self.builder.build_conditional_branch(bool_value, body_block, end_block).unwrap();
+        self.builder
+            .build_conditional_branch(bool_value, body_block, end_block)
+            .unwrap();
 
         self.builder.position_at_end(body_block);
         self.generate_internal(body_node);
@@ -782,9 +809,13 @@ mod tests {
                 code_generation::llvm::generator::LLVMGenerator::new(&mut context).generate(&ast);
             let exit_code = interpret_llvm_ir(&generated_ir);
             assert_eq!(
-                test_case.expected % 256, exit_code % 256,
+                test_case.expected % 256,
+                exit_code % 256,
                 "Test case: {} -- Expected: {}, found: {}\nGenerated IR:\n{}",
-                test_case.name, test_case.expected, exit_code, generated_ir
+                test_case.name,
+                test_case.expected,
+                exit_code,
+                generated_ir
             );
         }
     }
