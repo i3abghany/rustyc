@@ -391,10 +391,37 @@ impl<'ctx> LLVMGenerator<'ctx> {
         match expression {
             Expression::IntegerLiteral { .. } => self.generate_integer_literal(expression),
             Expression::Variable(name) => self.generate_variable_expression(name),
-            Expression::Binary(op, lhs, rhs) => self.generate_binary_expression(op, lhs, rhs),
+            Expression::Binary(operator, lhs, rhs) => {
+                self.generate_binary_expression(operator, lhs, rhs)
+            }
+            Expression::Unary(operator, operand) => {
+                self.generate_unary_expression(operator, operand)
+            }
             Expression::Assignment(lhs, rhs) => self.generate_assignment(lhs, rhs),
             _ => todo!(),
         }
+    }
+
+    fn generate_unary_expression(
+        &mut self,
+        operator: &Token,
+        operand: &Expression,
+    ) -> BasicValueEnum<'ctx> {
+        let operand = self.generate_expression(operand).into_int_value();
+        match operator.token_type {
+            TokenType::Minus => self.builder.build_int_neg(operand, "temp_neg"),
+            TokenType::Plus => Ok(operand),
+            TokenType::Bang => {
+                let operand = self
+                    .builder
+                    .build_int_cast(operand, self.context.bool_type(), "bool_operand")
+                    .unwrap();
+                self.builder.build_not(operand, "temp_not")
+            }
+            _ => panic!(),
+        }
+        .unwrap()
+        .as_basic_value_enum()
     }
 
     fn generate_assignment(&mut self, lhs: &Token, rhs: &Expression) -> BasicValueEnum<'ctx> {
@@ -823,6 +850,11 @@ mod tests {
     #[test]
     fn test_variable_declarations_and_definitions() {
         run_tests_from_file("./src/tests/variables.c");
+    }
+
+    #[test]
+    fn test_operators() {
+        run_tests_from_file("./src/tests/operators.c");
     }
 
     #[test]
