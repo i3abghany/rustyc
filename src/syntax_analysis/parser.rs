@@ -243,15 +243,15 @@ impl Parser {
         if self.is_assignment() {
             return self.parse_assignment_expression();
         }
-        let mut left = None;
+        let mut left: Expression;
         let unary_op_precedence = unary_operator_precedence(&self.current().token_type);
         if unary_op_precedence != 0 && unary_op_precedence >= parent_precedence {
-            left = Some(Expression::Unary(
+            left = Expression::Unary(
                 self.consume().clone(),
                 Box::new(self.parse_expression_internal(unary_op_precedence)),
-            ));
+            );
         } else {
-            left = Some(self.parse_primary_expression());
+            left = self.parse_primary_expression();
         }
         loop {
             let operator_token = self.current().clone();
@@ -264,13 +264,9 @@ impl Parser {
             }
             self.advance();
             let right = self.parse_expression_internal(operator_precedence);
-            left = Some(Expression::Binary(
-                operator_token,
-                Box::new(left.unwrap()),
-                Box::new(right),
-            ))
+            left = Expression::Binary(operator_token, Box::new(left), Box::new(right));
         }
-        left.unwrap()
+        left
     }
 
     fn parse_parenthesized_expression(&mut self) -> Expression {
