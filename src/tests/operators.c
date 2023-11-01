@@ -1,33 +1,33 @@
-// Case Binary operator +
-// Returns 3
+// CASE Binary operator +
+// RETURNS 3
 
 int main() {
     return 1 + 2;
 }
 
-// Case Binary operator -
-// Returns -1
+// CASE Binary operator -
+// RETURNS -1
 
 int main() {
     return 1 - 2;
 }
 
-// Case Binary operator *
-// Returns 10
+// CASE Binary operator *
+// RETURNS 10
 
 int main() {
     return 5 * 2;
 }
 
-// Case Binary operator *
-// Returns 4
+// CASE Binary operator *
+// RETURNS 4
 
 int main() {
     return 9 / 2;
 }
 
-// Case Binary arithmetic operators combined
-// Returns 9697
+// CASE Binary arithmetic operators combined
+// RETURNS 9697
 
 int main() {
     int x = 312;
@@ -37,43 +37,56 @@ int main() {
     return z - x;
 }
 
-// Case Binary operator ||
-// Returns 1
+// CASE Binary operator ||
+// RETURNS 1
 
 int main() {
-    int false = 0; int true = 123; return true || false;
+    int false = 0; int true = 123; int y = true || false; return y;
 }
 
-// Case Binary operator &&
-// Returns 0
+// CASE Binary operator &&
+// RETURNS 0
 
 int main() {
-    int false = 0; int true = 123; return true && false;
+    int false = 0; int true = 123; int y = true && false; return y;
 }
 
-// Case Binary operator ^
-// Returns 123
+// CASE Binary operator ^
+// RETURNS 123
 
 int main() {
     int false = 0; int true = 123; return true ^ false;
 }
 
-// Case Unary operator ! 1
-// Returns 1
+// CASE Unary operator ! 1
+// RETURNS 1
 
 int main() {
-    return !0;
+    int x = !0;
+    return x;
 }
 
-// Case Unary operator ! 2
-// Returns 0
+// CASE Unary operator ! 2
+// RETURNS 0
 
 int main() {
-    return !1;
+    int x = !1;
+    return x;
 }
 
-// Case Unary +-
-// Returns 144
+// CASE Unary +-
+// RETURNS 144
+
 int main() {
     int x = -----++++----+------12; return x * x;
+}
+
+// CASE Binary, unary and parenthesized expressions
+// RETURNS -1
+
+int main() {
+    int x = 3;
+    int y = 4;
+    int z = 5;
+    return (-x + y) * (z - x) / (-y + z) - x;
 }

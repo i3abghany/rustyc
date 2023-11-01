@@ -46,7 +46,8 @@ pub fn expect_exit_code(source: String, expected: i32) -> std::io::Result<()> {
 pub struct TestCase {
     pub name: String,
     pub source: String,
-    pub expected: i32,
+    pub expected_exit_code: Option<i32>,
+    pub expected_output: Option<String>,
 }
 
 pub fn parse_test_file(path: &str) -> Vec<TestCase> {
@@ -56,26 +57,44 @@ pub fn parse_test_file(path: &str) -> Vec<TestCase> {
     let test_strings = contents.split("// CASE ").skip(1).collect::<Vec<_>>();
     let mut result = vec![];
     for test_string in test_strings {
-        let mut lines = test_string.lines();
-        let name = lines.next().unwrap().clone().to_string();
-        let expected = lines
-            .next()
-            .unwrap()
-            .strip_prefix("// RETURNS ")
-            .unwrap()
-            .parse::<i32>()
-            .unwrap();
-        let source = lines.collect::<Vec<_>>().join("\n");
-        result.push(TestCase {
-            name,
-            source,
-            expected,
-        });
+        let mut lines = test_string.lines().peekable();
+
+        let mut test_case = TestCase {
+            name: lines.next().unwrap().to_string(),
+            source: "".to_string(),
+            expected_exit_code: None,
+            expected_output: None,
+        };
+
+        while lines.peek().is_some() {
+            let line = lines.peek().unwrap().to_string();
+
+            if line.is_empty() {
+                lines.next().unwrap();
+                continue;
+            }
+
+            let line = line.split_ascii_whitespace().collect::<Vec<_>>();
+            if line[0] != "//" {
+                break;
+            }
+
+            match line[1].to_ascii_lowercase().as_str() {
+                "returns" => test_case.expected_exit_code = Some(line[2].parse::<i32>().unwrap()),
+                "outputs" => test_case.expected_output = Some(line[2..].join(" ")),
+                _ => panic!("Invalid test case metadata: {}", line.join(" ")),
+            }
+
+            lines.next().unwrap();
+        }
+
+        test_case.source = lines.collect::<Vec<_>>().join("\n");
+        result.push(test_case);
     }
     result
 }
 
-pub fn interpret_llvm_ir(ir: &str) -> i32 {
+pub fn interpret_llvm_ir(ir: &str) -> (i32, String) {
     let id = Uuid::new_v4();
     let ir_path = format!("./{}.ll", id);
     let mut ir_file = File::create(&ir_path).unwrap();
@@ -87,6 +106,7 @@ pub fn interpret_llvm_ir(ir: &str) -> i32 {
         .output()
         .expect("Failed to compile generated code");
     let exit_code = output.status;
+    let stdout_str = String::from_utf8(output.stdout).unwrap();
     remove_file(&ir_path).unwrap();
-    return exit_code.code().unwrap();
+    return (exit_code.code().unwrap(), stdout_str);
 }
