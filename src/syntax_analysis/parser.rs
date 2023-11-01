@@ -28,8 +28,11 @@ fn binary_operator_precedence(token_type: TokenType) -> u8 {
     }
 }
 
-fn is_unary_operator(token_type: &TokenType) -> bool {
-    *token_type == TokenType::Plus || *token_type == TokenType::Minus
+fn unary_operator_precedence(token_type: &TokenType) -> u8 {
+    match token_type {
+        TokenType::Plus | TokenType::Minus | TokenType::Bang => 10,
+        _ => 0,
+    }
 }
 
 impl Parser {
@@ -240,10 +243,16 @@ impl Parser {
         if self.is_assignment() {
             return self.parse_assignment_expression();
         }
-        if is_unary_operator(&self.current().token_type) {
-            return Expression::Unary(self.consume().clone(), Box::new(self.parse_expression()));
+        let mut left = None;
+        let unary_op_precedence = unary_operator_precedence(&self.current().token_type);
+        if unary_op_precedence != 0 && unary_op_precedence >= parent_precedence {
+            left = Some(Expression::Unary(
+                self.consume().clone(),
+                Box::new(self.parse_expression_internal(unary_op_precedence)),
+            ));
+        } else {
+            left = Some(self.parse_primary_expression());
         }
-        let mut left = self.parse_primary_expression();
         loop {
             let operator_token = self.current().clone();
             let operator_precedence = binary_operator_precedence(operator_token.token_type.clone());
@@ -255,9 +264,13 @@ impl Parser {
             }
             self.advance();
             let right = self.parse_expression_internal(operator_precedence);
-            left = Expression::Binary(operator_token, Box::new(left), Box::new(right))
+            left = Some(Expression::Binary(
+                operator_token,
+                Box::new(left.unwrap()),
+                Box::new(right),
+            ))
         }
-        left
+        left.unwrap()
     }
 
     fn parse_parenthesized_expression(&mut self) -> Expression {
@@ -690,6 +703,37 @@ mod tests {
             )
         )
     ]
+    #[case("return -2 + 1;",
+        TranslationUnit(
+            vec![
+                ReturnStatement(
+                    Token{value: "return".to_string(), token_type: TokenType::Return, pos: 0},
+                    Box::new(
+                        ExpressionNode(
+                            Expression::Binary(
+                                Token{value: "+".to_string(), token_type: TokenType::Plus, pos: 10},
+                                Box::new(
+                                    Expression::Unary(
+                                        Token{value: "-".to_string(), token_type: TokenType::Minus, pos: 7},
+                                        Box::new(
+                                            Expression::IntegerLiteral(
+                                                Token{value: "2".to_string(), token_type: TokenType::IntegerLiteral, pos: 8}
+                                            )
+                                        )
+                                    )
+                                ),
+                                Box::new(
+                                    Expression::IntegerLiteral(
+                                        Token{value: "1".to_string(), token_type: TokenType::IntegerLiteral, pos: 12}
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            ]
+        )
+    )]
     fn test_parse_unary_expression(#[case] test_case: String, #[case] expected: ASTNode) {
         let tokens = Lexer::new(test_case).lex();
         let result = Parser::new(tokens).parse();
