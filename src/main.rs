@@ -3,8 +3,8 @@ mod lexical_analysis;
 mod syntax_analysis;
 mod utils;
 
-use clap::Parser;
 use crate::utils::compilation;
+use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[clap(about, long_about = None)]

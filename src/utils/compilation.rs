@@ -37,7 +37,7 @@ impl Compilation {
             filenames.push(object_name);
         }
 
-        let output = Command::new("gcc")
+        let output = Command::new("clang")
             .arg("-o")
             .arg(output_name)
             .args(&filenames)
