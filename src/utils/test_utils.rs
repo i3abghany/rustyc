@@ -1,4 +1,3 @@
-use std::env;
 use std::fs::{remove_file, File};
 use std::io::{Read, Write};
 use std::process::Command;
@@ -17,7 +16,7 @@ pub fn expect_exit_code(source: String, expected: i32) -> std::io::Result<()> {
 
     // FIXME the created files may not get deleted in case
     //  of an error in the execution of one of the commands
-    let mut output = Command::new("gcc")
+    let output = Command::new("gcc")
         .arg(&src_path)
         .arg("-o")
         .arg(&exe_path)
@@ -27,7 +26,7 @@ pub fn expect_exit_code(source: String, expected: i32) -> std::io::Result<()> {
     remove_file(&src_path)?;
     assert!(exit_code.success());
 
-    let mut output = Command::new(&exe_path)
+    let output = Command::new(&exe_path)
         .output()
         .expect("Failed to execute generated executable");
     let exit_code = output.status.code().unwrap();
@@ -100,7 +99,7 @@ pub fn interpret_llvm_ir(ir: &str) -> (i32, String) {
     let mut ir_file = File::create(&ir_path).unwrap();
     ir_file.write_all(ir.as_bytes()).unwrap();
 
-    let mut output = Command::new("lli")
+    let output = Command::new("lli")
         .arg("-opaque-pointers")
         .arg(&ir_path)
         .output()

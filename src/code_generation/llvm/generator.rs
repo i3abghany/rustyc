@@ -3,7 +3,6 @@ use crate::code_generation::llvm::symbol_table::*;
 use crate::lexical_analysis::tokens::*;
 use crate::syntax_analysis::ast::ASTNode::*;
 use crate::syntax_analysis::ast::*;
-use std::fmt::Pointer;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;

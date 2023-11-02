@@ -1,8 +1,6 @@
 use crate::lexical_analysis::tokens::*;
 use crate::syntax_analysis::ast::ASTNode::*;
 use crate::syntax_analysis::ast::*;
-use crate::utils::test_utils::interpret_llvm_ir;
-use std::panic::panic_any;
 
 pub struct Parser {
     tokens: Vec<Token>,
