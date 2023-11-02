@@ -28,8 +28,7 @@ int fib_iterative(int n) {
 }
 
 int main() {
-    int ret = !(fib_recursive(10) == fib_iterative(10));
-    return ret;
+    return !(fib_recursive(10) == fib_iterative(10));
 }
 ```
 

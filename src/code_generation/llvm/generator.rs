@@ -365,14 +365,45 @@ impl<'ctx> LLVMGenerator<'ctx> {
         builder.build_alloca(llvm_type, name).unwrap()
     }
 
+    fn build_int_cast_honoring_sizes(
+        &mut self,
+        value: IntValue<'ctx>,
+        target_type: IntType<'ctx>,
+    ) -> IntValue<'ctx> {
+        let value_size = value.get_type().get_bit_width();
+        let target_size = target_type.get_bit_width();
+
+        if value_size == target_size {
+            return value;
+        }
+        if value_size < target_size {
+            return self
+                .builder
+                .build_int_z_extend(value, target_type, "casted_value")
+                .unwrap();
+        }
+        self.builder
+            .build_int_truncate(value, target_type, "casted_value")
+            .unwrap()
+    }
+
     fn generate_return_statement(&mut self, node: &ASTNode) -> InstructionValue<'ctx> {
         match node {
             ReturnStatement(_, expression_node) => match expression_node.as_ref() {
                 ExpressionNode(expression) => {
                     let generated_expression = self.generate_expression(expression);
-                    self.builder
-                        .build_return(Some(&generated_expression))
+                    let return_type = self
+                        .current_function
                         .unwrap()
+                        .get_type()
+                        .get_return_type()
+                        .unwrap();
+                    // FIXME handle casting arbitrary types to each other
+                    let casted = self.build_int_cast_honoring_sizes(
+                        generated_expression.into_int_value(),
+                        return_type.into_int_type(),
+                    );
+                    self.builder.build_return(Some(&casted)).unwrap()
                 }
                 _ => panic!(
                     "Internal error: expected expression node, found: {:?}",
@@ -928,5 +959,10 @@ mod tests {
     #[test]
     fn test_function_calls() {
         run_tests_from_file("./src/tests/function_calls.c");
+    }
+
+    #[test]
+    fn test_implicit_casting() {
+        run_tests_from_file("./src/tests/implicit_cast.c");
     }
 }
