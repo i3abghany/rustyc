@@ -1,10 +1,10 @@
 mod code_generation;
-mod compilation;
 mod lexical_analysis;
 mod syntax_analysis;
 mod utils;
 
 use clap::Parser;
+use crate::utils::compilation;
 
 #[derive(Parser, Debug)]
 #[clap(about, long_about = None)]
@@ -34,9 +34,15 @@ fn main() {
         + args.exe_filename.is_some() as usize;
 
     if exclusive_args_count > 1 {
-        panic!("Cannot specify more than one option from [-l, -c, -s, -o] at one time");
+        eprintln!("Error: cannot specify more than one option from [-l, -c, -s, -o] at one time");
+        return;
     } else if exclusive_args_count == 0 {
         args.exe_filename = Some("a.out".to_string());
+    }
+
+    if args.input_source_files.is_empty() {
+        eprintln!("Error: at least one source file has to be provided");
+        return;
     }
 
     let compilation = compilation::Compilation::new();
